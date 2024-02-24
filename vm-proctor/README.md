@@ -46,7 +46,7 @@ Desde el directorio donde está el archivo docker-compose.yml y oiproctor/, y un
 
 # Diagrama de funcionamiento
 
-![Esquema de funcionamiento](https://docs.google.com/drawings/d/11dJ2KmpZ8IMGM4Ud3oZfOOmw3_iYrChvPEJQvGds194/preview)
+[Esquema de funcionamiento](https://docs.google.com/drawings/d/11dJ2KmpZ8IMGM4Ud3oZfOOmw3_iYrChvPEJQvGds194/preview)
 
 
 -----
@@ -101,4 +101,4 @@ p docker-compose build oiproctorp
 
 # Operation Diagram
 
-![Scheme](https://docs.google.com/drawings/d/11dJ2KmpZ8IMGM4Ud3oZfOOmw3_iYrChvPEJQvGds194/preview)
+[Scheme](https://docs.google.com/drawings/d/11dJ2KmpZ8IMGM4Ud3oZfOOmw3_iYrChvPEJQvGds194/preview)
