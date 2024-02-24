@@ -33,7 +33,7 @@ Desde el directorio donde está el archivo docker-compose.yml y oiproctor/, y un
 
 1. Iniciar el servidor vigilante desde el directorio donde está el archivo docker-compose.yml, mediante este comando:
 
-`docker-compose up oiproctor``
+`docker-compose up oiproctor`
 
 2. Iniciar las máquina virtuales de concursantes
 
@@ -82,7 +82,7 @@ Once the system is configured, you can proceed with its installation.
 
 From the directory where the docker-compose.yml file and oiproctor/ are located, and once in it, the following command must be executed:
 
-p docker-compose build oiproctorp 
+`docker-compose build oiproctor`
 
 # Usage
 

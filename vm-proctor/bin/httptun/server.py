@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Based on https://github.com/veluca93/httptun
 import datetime
 import os
 import sys

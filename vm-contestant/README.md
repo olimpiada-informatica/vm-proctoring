@@ -2,7 +2,7 @@
 
  - Estos scripts están configurados para ejecutarse en Xubuntu 22.04
  - Descargar la extensión oimoitor.xpi en /usr/lib/firefox-addons/distribution/extensions/
- - Para no mostrar las solicitudes de actualización del sistema, se recomienda ejecutar: sudo bash -c 'echo "Hidden=true" >> /etc/xdg/autostart/update-notifier.desktop'
+ - Para no mostrar las solicitudes de actualización del sistema, se recomienda ejecutar: `sudo bash -c 'echo "Hidden=true" >> /etc/xdg/autostart/update-notifier.desktop'`
  - Aplicaciones recomendadas: vim sublime-text idle3 clang code default-jdk geany firefox, más las extensiones ms-vscode.cpptools y ms-python.python de Code
 
 # Configuración
@@ -34,8 +34,8 @@
   PIP_PACKAGES="" # Paquetes PIP adicionales para instalar
 ```
 
- - Ejecutar: sudo oisetup <perfil>
- - Para refrescar el perfil durante el concurso, sin borrar datos del concursante, ejecutarlo sin parámetros: sudo oisetup
+ - Ejecutar: `sudo oisetup <perfil>`
+ - Para refrescar el perfil durante el concurso, sin borrar datos del concursante, ejecutarlo sin parámetros: `sudo oisetup`
 
 
 -----
@@ -45,7 +45,7 @@
 
  - These scripts are set up to run on Xubuntu 22.04
  - Download the extension oimoitor.xpi to /usr/lib/firefox-addons/distribution/extensions/
- - To avoid system update prompts, it is recommended to run: sudo bash -c 'echo "Hidden=true" >> /etc/xdg/autostart/update-notifier.desktop'
+ - To avoid system update prompts, it is recommended to run: `sudo bash -c 'echo "Hidden=true" >> /etc/xdg/autostart/update-notifier.desktop'`
  - Recommended applications: vim sublime-text idle3 clang code default-jdk geany firefox, plus the Code extensions ms-vscode.cpptools and ms-python.python
 
 # Setup
@@ -77,5 +77,5 @@
   PIP_PACKAGES=""            # Additional PIP packages to install
 ```
 
- - Run: sudo oisetup <perfil>
- - To refresh the profile during the contest, without deleting contestant data, run it without parameters: sudo oisetup
+ - Run: `sudo oisetup <perfil>`
+ - To refresh the profile during the contest, without deleting contestant data, run it without parameters: `sudo oisetup`
