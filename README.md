@@ -3,7 +3,7 @@
 Estos scripts permiten crear una máquina virtual de concursante en la que los organizadores del concurso pueden:
 
  - Conocer en tiempo real qué máquinas están encendidas
- - Conocer qué usuarios hay detrás de cada máquina
+ - Conocer qué usuarios CMS hay detrás de cada máquina
  - Limitar el acceso a internet
  - Desplegar configuraciones en caliente
  - Obtener archivos de las máquinas virtuales
@@ -27,7 +27,7 @@ Estos scripts permiten crear una máquina virtual de concursante en la que los o
 These scripts allow for the creation of a contestant virtual machine in which the contest organizers can:
 
  - Know in real-time which machines are turned on
- - Know which users are behind each machine
+ - Know which CMS users are behind each machine
  - Limit internet access
  - Deploy configurations on the fly
  - Retrieve files from the virtual machines
