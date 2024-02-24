@@ -24,7 +24,7 @@
   CONTEST_URL="https://concurso.olimpiada-informatica.org"
   PERSISTENT_STORAGE=true # Crear un directorio en el directorio home del concursante donde puedan almacenar datos que no se eliminarán cuando cierren sesión
   PERSISTENT_EXTERNAL=true # Almacenar los datos persistentes en un USB conectado
-  PERSISTENT_DIRNAME="oicat" # Nombre del directorio de almacenamiento persistente en el home del concursante
+  PERSISTENT_DIRNAME="oie" # Nombre del directorio de almacenamiento persistente en el home del concursante
   BOOKMARKS=("aprende.olimpiada-informatica.org" "Manuales") # Lista de marcadores para añadir a Firefox, deben ingresarse como pares de URL + Nombre
   BROWSER_EXTENSIONS="oimonitor"
   DNS_LOCKDOWN=true # Restringir o no el acceso a internet para que solo ciertas URLs estén disponibles (marcadores, sitio web del concurso, servidor del proctor, otros nombres de dominio o IPs en lista blanca
@@ -53,8 +53,8 @@
  - Add the logo in /etc/oisetup/logos/
  - Create or edit the profile in /etc/oisetup/profiles/ Here is an example of a profile:
 ```
-  CONTEST_NAME="OIcat"       # Name of the contest, purely informational
-  LOGO_PATH="oicat.png"      # It must be a PNG file. The file must be located in /etc/oisetup/logos/
+  CONTEST_NAME="OIE"       # Name of the contest, purely informational
+  LOGO_PATH="oie.png"      # It must be a PNG file. The file must be located in /etc/oisetup/logos/
   AVAILABLE_LOCALES="ca_ES es_ES en_US en_GB" # Available interface languages
   DEFAULT_LOCALE="ca_ES"     # Default languade when the system boots
   PROCTOR_TUNNEL_URL="https://proctor.oinf.es" # URL where the proctor is located. Must be left empty to disable it
@@ -67,7 +67,7 @@
   CONTEST_URL="https://concurso.olimpiada-informatica.org"
   PERSISTENT_STORAGE=true    # Create a directory in the contestant's home directory where they can store data that will bot be deleted when they log out
   PERSISTENT_EXTERNAL=true   # Store the persistent data in a plugged in USB
-  PERSISTENT_DIRNAME="oicat" # Name of the persistent storage directory in the contestant's home
+  PERSISTENT_DIRNAME="oie" # Name of the persistent storage directory in the contestant's home
   BOOKMARKS=("aprende.olimpiada-informatica.org" "Manuales") # List of bookmarks to add to Firefox, they must be entered as pairs of URL + Name
   BROWSER_EXTENSIONS="oimonitor"
   DNS_LOCKDOWN=true          # Whether to lock down internet access so only certain URLs are available (bookmarks, contest website, proctor server, other whitelisted domainnames or IPs
