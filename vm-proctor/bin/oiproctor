@@ -1,0 +1,296 @@
+#!/bin/bash
+
+CONFIG_PATH="/opt/oiproctor/etc/config"
+
+. "$CONFIG_PATH"
+
+for key in PROCTOR_SERVER_PATH PROCTOR_LOG_HTTPTUN_PATH PROCTOR_CONNECTIONS_PATH PROCTOR_LOG_USERS_PATH PROCTOR_TUNNEL_PASSWORD VM_PROCTOR_USER VM_PROCTOR_PRIVKEY_PATH VM_CONTESTANT_USER VM_PROCTOR_DIFF_IGNORE_PATH CONTEST_SHORTNAME; do
+    test -z "${!key}" && echo "Missing $key in $CONFIG_PATH" >&2 && exit 1
+done
+
+proctor_password="$PROCTOR_TUNNEL_PASSWORD"
+test -f "$PROCTOR_TUNNEL_PASSWORD" && proctor_password="$(cat "$PROCTOR_TUNNEL_PASSWORD")"
+
+function error  {
+    echo "$1" >&2
+    exit 1
+}
+
+function get_ignore_ips {
+    test -e "$ignore_ips_path" && cat "$ignore_ips_path" | xargs
+}
+
+function run_in_vm {
+    destination="$1"
+    shift
+    command="$@"
+    for key in destination command; do
+   	 test -z "${!key}" && echo "Missing $key" >&2 && exit 1
+    done
+    destination="$(get_all_destinations_resolved "$destination")"
+    parallel-ssh -H "$destination" -O "StrictHostKeyChecking=no" -l "$VM_PROCTOR_USER" -x "-i '$VM_PROCTOR_PRIVKEY_PATH'" -P $command
+}
+
+function get_daemon_pid {
+    ps -Af | tr -s " " | sed -E 's/[+?*]//g' | grep -E ":[0-9][0-9] python3? $PROCTOR_SERVER_PATH $(echo "$proctor_password" | sed -E 's/[+?*]//g')" | cut -d" " -f2 | xargs
+}
+
+function is_ip {
+    value="$1"
+    echo "$value" | grep -qE '[0-9]+(\.[0-9]){3}' >/dev/null
+}
+
+function resolve_query {
+    host="$1"
+    verbose="$2"
+    if is_ip "$host"; then
+   	 resolve_to_hostname "$host" "$verbose"
+    else
+   	 resolve_to_ip "$host"
+    fi
+}
+
+function resolve_to_ip {
+    host="$1"
+    echo "$(dig +short "$host")"
+}
+
+function resolve_to_hostname {
+    req_ip="$1"
+    verbose="$2"
+    main_hostname="$(dig +short -x "$req_ip" | rev | cut -c2- | rev)"
+    echo -n "$main_hostname"
+    test -z "$verbose" && echo "" && return
+    for line in $(cat "$alias_ips_path" "$PROCTOR_USERS_PATH" "$PROCTOR_CONNECTIONS_PATH" 2>/dev/null | tr ' ' '='); do
+	    ans_ip="$(echo "$line" | cut -d= -f1)"
+	    test "$ans_ip" != "$req_ip" && continue
+	    hostname="$(echo "$line" | cut -d= -f2)"
+            test "$hostname" != "$main_hostname" && echo -n " $hostname"
+    done
+    echo ""
+}
+
+function resolve_destination {
+    host="$1"
+    if is_ip "$host"; then
+   	 echo "$host"
+    else
+   	 resolve_to_ip "$host"
+    fi
+}
+
+function get_all_connection_hosts {
+    ignore_ips="$(get_ignore_ips)"
+    for ip in $(cat "$alias_ips_path" "$PROCTOR_USERS_PATH" "$PROCTOR_CONNECTIONS_PATH" 2>/dev/null | cut -d' ' -f2 | xargs); do
+   	 echo " $ignore_ips " | grep -q " $ip " || echo "$ip"
+    done
+}
+
+function get_all_connection_ips {
+    ignore_ips="$(get_ignore_ips)"
+    for ip in $(cat "$PROCTOR_CONNECTIONS_PATH" 2>/dev/null | cut -d' ' -f1 | xargs); do
+   	 echo " $ignore_ips " | grep -q " $ip " || echo "$ip"
+    done
+}
+
+function get_all_destinations {
+    destination="$1"
+    use_hostnames="$2"
+    if test "$destination" = "all"; then
+   	 test -n "$use_hostnames" && get_all_connection_hosts || get_all_connection_ips
+    else
+   	 resolve_destination "$destination"
+    fi
+}
+
+function get_all_destinations_resolved {
+    destination="$1"
+    for host in $(get_all_destinations "$destination"); do
+   	 resolve_destination "$host"
+    done
+}
+
+ignore_ips_path="$PROCTOR_CONNECTIONS_PATH"_"$(get_daemon_pid)".ignore_ips
+alias_ips_path="$PROCTOR_CONNECTIONS_PATH"_"$(get_daemon_pid)".alias_ips
+
+! test -f "$alias_ips_path" && ln -sf "$alias_ips_path" "$PROCTOR_ALIAS_PATH"
+
+command="$1"
+destination="$2"
+description="$3"
+case "$command" in
+    start)
+   	 python3 "$PROCTOR_SERVER_PATH" "$proctor_password"
+   	 ;;
+    daemon)
+	 "$(dirname "$0")"/"$(basename "$0")" start &
+	 "$(dirname "$0")"/oiproctor_users_monitor &
+   	 ;;
+    stop)
+   	 pid="$(get_daemon_pid)"
+   	 test -n "$pid" && kill $pid || echo "Not running"
+	 kill $(pgrep -f "$(dirname "$0")"/"$(basename "$0")") $(pgrep -f "$(dirname "$0")"/oiproctor_users_monitor) >/dev/null 2>&1
+   	 ;;
+    status)
+   	 pid="$(get_daemon_pid)"
+   	 test -z "$pid" && echo "Not running" || echo "Running. PID $pid"
+   	 ;;
+    log)
+   	 test -f "$PROCTOR_LOG_HTTPTUN_PATH" && cat "$PROCTOR_LOG_HTTPTUN_PATH"
+   	 ;;
+    active)
+   	 test -n "$(get_daemon_pid)" -a -f "$PROCTOR_CONNECTIONS_PATH" && (
+   		 ignore_ips="$(get_ignore_ips)"
+		 for macip in $(cat "$PROCTOR_CONNECTIONS_PATH") $(cat "$alias_ips_path" | cut -d' ' -f2); do
+   			 echo " $ignore_ips " | grep -q " $(echo "$macip" | cut -d' ' -f2) " || echo "$macip"
+   		 done | sort  | uniq
+   	 )
+   	 ;;
+    ignore)
+   	 shift
+   	 ips="$@"
+   	 for key in ips; do
+   		 test -z "${!key}" && echo "Missing $key" >&2 && exit 1
+   	 done
+   	 ignore_ips="$ips $(get_ignore_ips)"
+   	 echo "$ignore_ips" > "$ignore_ips_path"
+   	 ;;
+    alias)
+         shift
+	 ip="$1"
+	 alias="$2"
+	 ! is_ip "$ip" && echo "IP $ip is not valid" && exit 1
+	 ! test -n "$alias" && echo "Missing alias value" && exit 1
+	 grep -vE "^$ip\s|\s$alias\$" "$alias_ips_path" > "$alias_ips_path".tmp 2>/dev/null # Delete previous conflicting entries
+	 echo "$ip $alias" >> "$alias_ips_path".tmp
+	 mv "$alias_ips_path".tmp "$alias_ips_path"
+	 echo " $ignore_ips " | sed "s/ $ip //g" > "$ignore_ips_path" # Un-ignore the alias, since it has been reset
+	 ;;
+    aliases)
+   	 cat "$alias_ips_path" | cut -d" " -f2 | sort
+   	 ;;
+    users)
+   	 cat "$PROCTOR_USERS_PATH" 2>/dev/null | cut -d" " -f2 | sort
+   	 ;;
+    ping)
+   	 for key in destination; do
+   		 test -z "${!key}" && echo "Missing $key" >&2 && exit 1
+   	 done
+   	 for host in $(get_all_destinations "$destination" true); do
+   		 test "$destination" = "all" && echo -n "$host "
+   		 ping -c1 "$host" >/dev/null && echo alive || echo dead
+   	 done
+   	 ;;
+    whois)
+   	 shift
+   	 for value in $@; do
+   		 test $# -gt 1 && echo -n "$value "
+   		 resolve_query "$value" true
+   	 done
+   	 ;;
+    disk)
+   	 run_in_vm "$destination" df / -h "|" tail -1
+   	 ;;
+    uptime|cpu)
+   	 run_in_vm "$destination" uptime
+   	 ;;
+    mem)
+   	 run_in_vm "$destination" free -ht "|" tail -1 "|" tr -s "' '" "|" cut "-d' '" -f4
+   	 ;;
+    allow)
+   	 shift
+         run_in_vm "$destination" sudo dns-lockdown allow $@
+   	 ;;
+    block)
+   	 shift
+         run_in_vm "$destination" sudo dns-lockdown block $@
+   	 ;;
+    tell)
+   	 run_in_vm "$destination" sudo -u '$(basename $(readlink /home/'$VM_CONTESTANT_USER'))' zenity --display :0 --info --width 400 --title "'$VM_DIALOG_TITLE'" --text "'$description'"
+   	 ;;
+    alert|warn)
+   	 run_in_vm "$destination" sudo -u '$(basename $(readlink /home/'$VM_CONTESTANT_USER'))' zenity --display :0 --warning --width 400 --title "'$VM_DIALOG_TITLE'" --text "'<span font=\"32\" foreground=\"red\">$description</span>'"
+   	 ;;
+    yesno)
+   	 run_in_vm "$destination" sudo -u '$(basename $(readlink /home/'$VM_CONTESTANT_USER'))' zenity --display :0 --question --width 400 --title "'$VM_DIALOG_TITLE'" --text "'$description'" "&&" echo YES "||" echo NO
+   	 ;;
+    ask)
+   	 run_in_vm "$destination" sudo -u '$(basename $(readlink /home/'$VM_CONTESTANT_USER'))' zenity --display :0 --entry --width 400 --title "'$VM_DIALOG_TITLE'" --text "'$description'" "||" echo UNDEFINED
+   	 ;;
+    clean)
+         run_in_vm "$destination" sudo -u '$(basename $(readlink /home/'$VM_CONTESTANT_USER'))' killall zenity
+   	 ;;
+    reset)
+   	 run_in_vm "$destination" sudo systemctl restart lightdm "2>&1" "||" fail "\"FAILED Cannot stop lightdm\""
+   	 ;;
+    diff)
+   	 orig="/etc/guest-session/skel/"
+   	 dest="/home/$VM_CONTESTANT_USER/"
+   	 run_in_vm "$destination" sudo rsync -nrl "$dest" "$orig" --out-format=%n "|" grep -vxf "$VM_PROCTOR_DIFF_IGNORE_PATH"
+   	 echo run_in_vm "$destination" rsync -nrl "$dest" "$orig" --out-format=%n "|" grep -vxf "$VM_PROCTOR_DIFF_IGNORE_PATH"
+   	 ;;
+    cmd)
+   	 shift 2
+   	 run_in_vm "$destination" $@
+   	 ;;
+    ssh)
+   	 ssh -X -i "$VM_PROCTOR_PRIVKEY_PATH" -o "StrictHostKeyChecking=no" "$VM_PROCTOR_USER@$(resolve_destination "$destination")"
+   	 ;;
+    put)
+   	 shift 2
+   	 destination="$(get_all_destinations_resolved "$destination")"
+   	 parallel-scp -H "$destination" -O "StrictHostKeyChecking=no" -l "$VM_PROCTOR_USER" -x "-i '$VM_PROCTOR_PRIVKEY_PATH'" -r "$1" ./
+   	 ;;
+    get)
+   	 shift 2
+	 getpath="oiproctor_get_$(date +%Y%m%d_%H%M%S)"
+	 mkdir "$getpath" || error "Cannot create $getpath directory"
+   	 for host in $(get_all_destinations_resolved "$destination"); do
+		echo -n "$host: "
+		gethostpath="$getpath/$host"
+		! mkdir "$gethostpath" && echo Error creating directory && continue
+   	 	scp -o "StrictHostKeyChecking=no" -i "$VM_PROCTOR_PRIVKEY_PATH" -r "$VM_PROCTOR_USER@$host:$1" "$gethostpath"/ >/dev/null && echo OK || echo Failed
+	 done
+	 ;;
+    version)
+   	 run_in_vm "$destination" vm_version_print
+   	 ;;
+    *)
+   	 echo "Usage: $(basename "$0") <command> [options]
+
+Available commands:
+    start:   starts the proctor server in foreground
+    daemon:  starts the proctor server in background through systemd
+    stop:    stops the running proctor server (only affects the proctor server of the same contest, in case several contests were running simoultaneously)
+    status:  checks if the proctor server for this contest is running
+    log:     displays the history of all vm connections (timestamp + MAC + IP) of all proctor servers
+    active:  lists all connected vms
+    ignore:  mark an IP or alias from the active list to be ignored (for old and reconnected clients)
+    alias:   add an alias for an IP
+    aliases: displays all aliases that have been added manually
+    users:   displays which user is logged into each vm
+    ping:    ping the vm
+    whois:   given a CMS username returns its IP, or viceversa
+    disk:    reports vm's available disk space
+    uptime:  reports vm's uptime and cpu usage
+    mem:     reports vm's available memory (ram + swap)
+    allow:   Add an IP or domain to the whitelist in the vm
+    block:   Remove an IP or domain to the whitelist in the vm
+    tell:    opens in the vm a window with a message
+    alert:   opens in the vm a window with a warning message
+    yesno:   opens in the vm a window with a message and "yes" "no" buttons
+    ask:     opens in the vm a window with an open question
+    clean:   closes in the vm all open $(basename "$0") windows
+    reset:   resets in the vm the contestant's user
+    diff:    reports files added in the vm's user profile
+    cmd:     runs in the vm the provided custom command
+    ssh:     opens a terminal in the vm (destination \"all\" is not accepted)
+    put:     copy a file or directory to the vm
+    get:     download a file or directory from the vms
+    version: prints the oiproctor version in the vm
+    help:    prints this help message
+
+All commands require a destination (IP, CMS user, alias or \"all\" to run in all vms in parallel) except start, daemon, stop, status, log, active, ignore, alias, users, help" >&$(test "$command" = "help" && echo 1 || echo 2)
+   	 exit $(test "$command" = "help" && echo 0 || echo 1)
+   	 ;;
+esac

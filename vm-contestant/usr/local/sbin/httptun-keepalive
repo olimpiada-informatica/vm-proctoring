@@ -1,0 +1,12 @@
+#!/bin/bash
+INTERVAL=20
+MAX_WAIT=10000
+MAX_FAILS=3
+TARGET=10.9.0.1
+count=0
+while true; do
+	ping -c1 -W${MAX_WAIT:-4000} $TARGET >/dev/null 2>&1 && count=0 || count=$((count + 1))
+	test $count -ge 3 && systemctl restart httptun && count=0
+	sleep ${INTERVAL:-60}
+done
+

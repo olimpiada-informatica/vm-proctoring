@@ -1,0 +1,29 @@
+#!/bin/bash
+SFTP_SERVER=/usr/lib/openssh/sftp-server
+NOW=`date +%Y%m%d%H%M%S`
+IP=`echo $SSH_CLIENT | sed 's/ .*//'`
+LOGFILE="/opt/oiproctor/log/ssh/$USER-$NOW-$IP.log"
+logdir="$(dirname "$LOGFILE")"
+test -d "$logdir" || mkdir -p "$logdir"
+if [ "${SSH_ORIGINAL_COMMAND:-}" = "internal-sftp" ]
+then
+    echo "substituting $SFTP_SERVER for internal SFTP service" >> $LOGFILE
+    echo "========================================" >> $LOGFILE
+    exec $SFTP_SERVER
+elif [ "${SSH_ORIGINAL_COMMAND:-}" = "$SFTP_SERVER" ]
+then
+    echo starting SFTP service >> $LOGFILE
+    echo ======================================== >> $LOGFILE
+    exec $SFTP_SERVER
+elif [ -n "${SSH_ORIGINAL_COMMAND:-}" ]
+then
+    echo executing $SSH_ORIGINAL_COMMAND >> $LOGFILE
+    echo ======================================== >> $LOGFILE
+    exec script -a -f -q -c "$SSH_ORIGINAL_COMMAND" $LOGFILE
+else
+    echo starting interactive shell session >> $LOGFILE
+    echo ======================================== >> $LOGFILE
+    exec script -a -f -q $LOGFILE
+fi
+echo exec failed, rv=$?
+exit 1

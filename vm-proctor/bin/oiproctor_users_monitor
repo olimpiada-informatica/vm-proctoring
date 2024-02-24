@@ -1,0 +1,151 @@
+#!/bin/node
+
+const CONFIG_PATH   	= '/opt/oiproctor/etc/config';
+const MANDATORY_PARAMS  = [ 'listen_port', 'listen_host', 'contest_shortname', 'proctor_connections_path', 'proctor_users_path', 'title', 'ping_interval', 'update_whitelist', 'users' ];
+
+const http  	= require('http');
+const fs    	= require('fs');
+const { exec }	= require("child_process");
+
+const config	= {};
+var users_map   = {};
+var cache   	= {};
+
+function date_formatted(date) {
+
+    	const now   	= date || new Date();
+
+    	const year  	= now.getFullYear();
+    	const month 	= String(now.getMonth() + 1).padStart(2, '0');
+    	const day   	= String(now.getDate() 	).padStart(2, '0');
+    	const hours 	= String(now.getHours()	).padStart(2, '0');
+    	const minutes   = String(now.getMinutes()  ).padStart(2, '0');
+    	const seconds   = String(now.getSeconds()  ).padStart(2, '0');
+
+    	return year + '-' + month + '-' + day + ' ' + hours + ':' + minutes + ':' + seconds;
+
+}
+
+const requestListener = function (req, res) {
+
+    	const params = new URLSearchParams(req.url.split('?').slice(1).join('?'));
+
+    	const update = (req, res) => {
+
+            	const user  	= params.get(config.contest_shortname + '_login');
+
+            	if (!user) return;
+            	if (!config.users.includes(user)) return; // Whitelist to prevent http requests poisoning the dns
+
+            	const ip    	= req.socket.remoteAddress;
+
+            	if (!ip.match(new RegExp(config.update_whitelist))) return console.error(`Invalid source IP ${ip} trying to register ${user}`);
+
+            	const user_obj  = user => { return { user: user, ip: ip, timestamp: Date.now() } };
+
+            	if (users_map[ip]?.user === user) {
+                    	users_map[ip] = user_obj(user);
+                    	return;
+            	}
+
+            	const datetime  = date_formatted();
+            	const old_user  = users_map[ip]?.user;
+            	let old_ip  	= Object.keys(users_map).find(k => users_map[k].user == user);
+
+            	if (old_ip) delete users_map[old_ip];
+
+            	const info  	= datetime + '\t' + ip + '\t' + user;
+            	let warning 	= '';
+            	if (old_user && old_user != user) warning += '\t' + '<' + old_user;
+            	if (old_ip) warning += (warning ? ',' : '\t') + '<' + old_ip;
+            	console[warning ? 'warn' : 'log'](info + warning);
+
+            	users_map[ip] = user_obj(user);
+
+            	fs.writeFileSync(
+                    	config.proctor_users_path,
+                    	Object.entries(users_map).reduce((acc, [ ip, v ]) => {
+                            	const user = v.user;
+                            	acc += ip + ' ' + user + '\n';
+                            	return acc;
+                    	}, ''),
+            	);
+
+exec('killall -s SIGHUP dnsmasq');
+
+    	};
+
+    	const status = (req, res) => {
+
+            	const now = Date.now();
+
+            	const nocache = params.get('nocache');
+            	if (!nocache && cache.status?.timestamp > now - config.ping_interval / 2 * 1000) return res.write(cache.status.output);
+
+            	let output = "";
+            	output	+= `<!DOCTYPE html><html><head><title>${config.title}</title><meta http-equiv="refresh" content="${config.ping_interval}"></head><body>`;
+
+            	output	+= '<style>.user { display: inline-block; float: left; padding: 1em; text-align: center; min-width: 5em; border: 1px dotted grey; font-family: monospace; } .first { clear: left; } .online { background-color: green; color: white; } .offline { background-color: red; } .idle { background-color: yellow; }</style>';
+
+            	let old_team;
+            	[ ...new Set(config.users) ].sort().forEach(user => {
+
+                    	const team     	= user.substring(0, 2);
+
+                    	const user_obj 	= Object.values(users_map).find(v => v.user == user);
+
+                    	let user_ip    	= user_obj?.ip;
+                    	if (!user_ip) user_ip = "";
+
+                    	let classname  	= 'user';
+                    	if (user_obj?.timestamp < now - config.ping_interval * 2 * 1000) {
+                            	classname += ' idle';
+                    	} else if (user_obj) {
+                            	classname += ' online';
+                    	} else {
+                            	classname += ' offline';
+                    	}
+
+                    	if (old_team != team) {
+                            	classname += ' first';
+                    	}
+
+                    	output        	+=`<div class="${classname}" title="${user_ip}">${user}</div>`;
+
+                    	old_team       	= team;
+
+            	});
+
+            	output	+= '</body></html>';
+            	res.write(output);
+
+            	cache.status = { output: output, timestamp: now };
+
+    	}
+
+    	if (req.url.startsWith('/status')) status(req, res);
+    	else if (req.url.startsWith('/update')) update(req, res);
+
+    	res.end();
+
+};
+
+try {
+
+    	const data = fs.readFileSync(CONFIG_PATH, 'utf8');
+    	data.split('\n').forEach(line => {
+            	line = line.trim();
+            	if (line.startsWith('#') || !line) return;
+            	const [ k, v ]  = line.split('=');
+            	const param 	= k.toLowerCase().replace(/^users_monitor_/, '');
+            	config[param]   = v.startsWith('"') && v.endsWith('"') ? v.substring(1, v.length - 1) : v;
+    	});
+    	[ 'listen_port', 'ping_interval' ].forEach(k => config[k] = parseInt(config[k]));
+    	[ 'users' ].forEach(k => config[k] = config[k].split(' ').map(v => v.trim()).filter(v => v));
+    	for (let k of MANDATORY_PARAMS) if (!config[k]) return console.error(`Missing mandatory parameter ${k} in config file ${CONFIG_PATH}`);
+
+    	http.createServer(requestListener).listen(config.listen_port, config.listen_host, () => {});
+
+} catch (err) {
+    	console.error(`Failed to read config file ${CONFIG_PATH}: ${err}`);
+}

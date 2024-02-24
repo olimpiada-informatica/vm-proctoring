@@ -1,0 +1,10 @@
+version: '2'
+services:
+  oiproctor:
+    build: oiproctor/
+    restart: on-failure
+    privileged: true
+    volumes:
+      - './oiproctor:/opt/oiproctor:rw'
+    ports:
+      - "443"

@@ -1,0 +1,4 @@
+#!/bin/bash
+. /etc/httptun
+test -z "$ENABLED" -o "$ENABLED" = 0 -o "$ENABLED" = false -o "$ENABLED" = No -o "$ENABLED" = NO && exit 0
+/usr/bin/python3 -Wonce /usr/local/bin/httptun/client.py "$SERVER" "$PASSWORD"

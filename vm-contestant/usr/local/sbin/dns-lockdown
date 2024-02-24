@@ -1,0 +1,120 @@
+#!/bin/sh
+
+CONFIG_PATH="/etc/dns-lockdown"
+
+
+stop() {
+
+    	iptables -F
+    	iptables -X
+    	iptables -t nat -F
+	iptables -t nat -X
+	iptables -t mangle -F
+	iptables -t mangle -X
+	iptables -P INPUT ACCEPT
+	iptables -P FORWARD ACCEPT
+	iptables -P OUTPUT ACCEPT
+
+}
+
+start() {
+
+	. "$CONFIG_PATH/config" 2>/dev/null
+
+	test -z "$ENABLED" -o "$ENABLED" = 0 -o "$ENABLED" = false -o "$ENABLED" = No -o "$ENABLED" = NO && exit 0
+
+	# Block all traffic by default
+    	iptables -P INPUT   DROP
+   	iptables -P FORWARD DROP
+   	iptables -P OUTPUT  DROP
+
+	# Accept ping, traceroute, etc
+	iptables -A INPUT  -p icmp -j ACCEPT
+	iptables -A OUTPUT -p icmp -j ACCEPT
+
+	# Accept localhost traffic
+	iptables -A INPUT  -i lo -j ACCEPT
+	iptables -A OUTPUT -o lo -j ACCEPT
+
+	# Accept proctor traffic
+	iptables -A INPUT  -i tap0 -j ACCEPT 2>/dev/null
+	iptables -A OUTPUT -o tap0 -j ACCEPT 2>/dev/null
+
+	# Accept DNS requests to whitelisted domains
+    	for domain in $(cat "$CONFIG_PATH/domains.whitelist"); do
+            	domain_hex=$(perl -e 'print map {chr(length($_)).$_} split /\./, "'$domain'"' | xxd -p | tr -dc '0-9a-f')
+            	iptables -A OUTPUT -o "$INTERFACE" -p udp --dport 53 -d 10.0.2.3 -m string --hex-string "|$domain_hex|" --algo bm -j ACCEPT -m comment --comment "$domain"
+    	done
+
+	# Accept outgoing/incoming traffic to/from whitelisted IPs
+	ipset create whitelisted_ips hash:net 2>/dev/null
+	ipset flush  whitelisted_ips
+    	for ip in $(cat "$CONFIG_PATH/ips.whitelist"); do
+		ipset add whitelisted_ips "$ip" 2>&1 | grep -v "it's already added"
+	done
+	iptables -A INPUT  -i "$INTERFACE" -m set --match-set whitelisted_ips dst -j ACCEPT
+	iptables -A OUTPUT -o "$INTERFACE" -m set --match-set whitelisted_ips dst -j ACCEPT
+
+	# Accept responses to accepted connections
+	iptables -A INPUT  -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+	iptables -A OUTPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+
+}
+
+allow() {
+
+	for item in $@; do
+		echo "$item" | grep -vE '^[0-9.]+$' | idn --no-tld
+	done | cat - "$CONFIG_PATH/domains.whitelist" | sort | uniq | sponge "$CONFIG_PATH/domains.whitelist"
+
+	for item in $@; do
+		echo "$item" | grep -E '^[0-9.]+$'
+	done | cat - "$CONFIG_PATH/ips.whitelist" | sort | uniq | sponge "$CONFIG_PATH/ips.whitelist"
+
+	stop
+	start
+
+}
+
+block() {
+
+	for item in $@; do
+		echo "$item" | grep -qvE '^[0-9.]+$' || continue
+		sed "s/^$item\$//" -i "$CONFIG_PATH/domains.whitelist"
+	done
+
+	for item in $@; do
+		echo "$item" | grep -qE '^[0-9.]+$' || continue
+		sed "s/^$(echo $item | idn --no-tld)\$//" -i "$CONFIG_PATH/ips.whitelist"
+	done
+
+	stop
+	start
+
+}
+
+case "$1" in
+    	start)
+            	start
+            	;;
+    	stop)
+            	stop
+            	;;
+    	restart|reload)
+            	stop
+            	start
+            	;;
+	allow)
+		shift
+		allow $@
+            	;;
+	block)
+		shift
+		block $@
+            	;;
+	*)
+		echo "Unknown action: $1" >&2
+		exit 1
+		;;
+esac
+

@@ -1,0 +1,7 @@
+#!/bin/sh
+INTERVAL=60
+while true; do
+	pgrep -x dnsmasq >/dev/null || service dnsmasq restart
+	killall -HUP dnsmasq
+	sleep $INTERVAL
+done

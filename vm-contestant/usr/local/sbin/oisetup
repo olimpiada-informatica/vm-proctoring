@@ -1,0 +1,497 @@
+#!/bin/bash
+
+# Use with Xubuntu 22.04
+
+# Setup
+CONFIG_PATH="/etc/oisetup"
+PROFILES_PATH="$CONFIG_PATH/profiles"
+LOGOS_PATH="$CONFIG_PATH/logos"
+NATIVE_PROFILE="default"
+NATIVE_LOCALE="en_US"
+NATIVE_PERSISTENT_DIRNAME="oi"
+NATIVE_PROCTOR_USER="oi"
+NATIVE_PROCTOR_DIFF_IGNORE="\.profile \.skip-guest-warning-dialog \.xsessionrc \.cache/.* \.config/Code/ \.config/gtk-3\.0/ \.config/pulse/ \.config/Thunar/ \.config/user-dirs\.dirs \.config/user-dirs\.locale \.config/xfce4/.* \.config/xubuntu/ \.config/xubuntu/xdg-xubuntu-templates\.cfg \.gnupg/ \.ICEauthority \.local/ \.local/share/ \.vboxclient-clipboard\.pid \.vboxclient-display-svga-x11\.pid \.vboxclient-draganddrop\.pid \.vboxclient-seamless\.pid \.vscode/argv\.json \.vscode-cli/ \.vscode/extensions/.* \.config/Code/.* \.mozilla/firefox/.* \.Xauthority \.xsession-errors \.xsession-errors\.old Desktop/ Documents/ Downloads/ Music/ Pictures/ Public/ Templates/ Videos/ Descargas/ Documentos/ Escritorio/ Imágenes/ Música/ Plantillas/ Público/ Vídeos/"
+NATIVE_DNS_LOCKDOWN="edgecastcdn.net root-servers.net cdn.mozilla.net services.mozilla.com googleapis.com detectportal.firefox.com o.lencr.org spocs.getpockercom telemetry.mozilla.org ssl.gstatic.com ipv4only.arpa clients6.google.com dataops.mozgcp.net ocsp.digicert.com dscq.akamai.net l.google.com phicdn.net ocsp.pki.goog mozaws.net addons.mozilla.org cloudfront.net akamaiedge.net daisy.ubuntu.com in-addr.arpa ip6.arpa connectivity-check.ubuntu.com"
+NATIVE_DNS_LOCKDOWN_INTERFACE="enp0s3"
+IGNORE_SYSTEM_CHECKS=
+
+# Global variables
+profile="$1"
+profile_path=""
+default_profile_path="$PROFILES_PATH/$NATIVE_PROFILE"
+locale=""
+dns_lockdown_implicit_exceptions=""
+
+function error {
+	echo -e "$@" >&2
+	exit 1
+}
+
+function is_enabled {
+
+	value="$1"
+	test -n "$value" && echo "$value" | grep -qviE 'false|no|0'
+
+}
+
+# System checks
+if ! is_enabled "$IGNORE_SYSTEM_CHECKS"; then
+	for path in "$CONFIG_PATH" /usr/share/plymouth/themes/xubuntu-logo/logo.png /var/lib/locales/supported.d/ /usr/share/i18n/SUPPORTED /etc/locale.gen; do
+		test -e "$path" || error "Path $path does not exist!"
+	done
+	for command in idn sponge xdotool osd_cat locale-gen update-locale "setxkbmap -help" xargs sort uniq tr systemctl basename sed grep apt-get pip3 "ping -V" ipset "iptables -V" tcpdump pgrep sudo "killall -V" perl python3 truncate; do
+		test "$(echo "$command" | wc -w)" -eq 1 && command="$command --help"
+		$command >/dev/null 2>&1 || error "Program $(echo $command | cut -d' ' -f1) is required!"
+	done
+fi
+
+# Commandline checks
+test "$EUID" -ne 0 && echo "This script must be run as root!" >&2 && exit 1
+test $# -gt 1 && echo -e "Invalid arguments!\nRun $(basename "$0") --help to find out more." >&2 && exit 1
+test $# -eq 0 && request_refresh=true
+test "$1" = --help && echo -e "Usage: $(basename "$0") [profile]\nAvailable profiles: $(for file in "$PROFILES_PATH"/*; do test -L "$file" || basename "$(echo "$file")"; done | sort | xargs)\nProfiles are located in $PROFILES_PATH" && exit 0
+
+test -z "$profile" && profile="$NATIVE_PROFILE"
+profile_path="$PROFILES_PATH/$profile"
+! test -f "$profile_path" && echo "No $PROFILES_PATH/$profile file found!" >&2 && exit 1
+
+function get_enabled {
+
+	value="$1"
+	is_enabled "$value" && echo true
+
+}
+
+function get_items_in_first_list_only {
+
+	list1=" $1 "
+	list2=" $2 "
+	for item in $list1; do
+		echo " $list2 " | grep -qvE "\s$item\s" && echo "$item"
+	done
+
+}
+
+function get_domain {
+
+	for url in $@;  do
+		echo "$url" | sed -nE 's/^([a-z]+:\/\/)?([^ /?#]+)(:[0-9]+)?([\/?#].*)?$/\2/p'
+	done
+
+}
+
+function install_locales {
+	
+	locales="$@"
+	locales_gen=""
+	language_packs=""
+
+	last_lang=""
+	rm -f /var/lib/locales/supported.d/*
+	for locale in $(echo $locales "$NATIVE_LOCALE" | xargs | tr ' ' '\n' | sort | uniq); do
+		lang="${locale:0:2}"
+		full_locale="$locale.UTF-8 UTF8"
+		test "$last_lang" != "$lang" && truncate -s0 /var/lib/locales/supported.d/"$lang"
+		echo "$locale.UTF-8 UTF-8" >> /var/lib/locales/supported.d/"$lang"
+		language_packs="$language_packs language-pack-gnome-${lang}"
+		echo "$locale.UTF-8 UTF-8"
+		last_lang="$lang"
+	done > /etc/locale.gen
+
+	apt-get install -y $(echo "$language_packs" | xargs | tr ' ' '\n' | sort | uniq) >/dev/null
+
+	locale-gen --purge
+
+}
+
+function default_locale {
+
+	locale="$1"
+	test -z "$locale" && locale="$NATIVE_LOCALE"
+
+	echo "Setting up locale: $locale"
+	countrycode="${locale: -2}"
+	countrycode="${countrycode,,}"
+	update-locale "LANG=$locale.UTF-8" "LANGUAGE=${locale:0:2}" 
+	setxkbmap "$countrycode"
+	sed 's/XKBLAYOUT=.*/XKBLAYOUT="'"$countrycode"'"/' /etc/default/keyboard > /etc/default/keyboard.tmp
+	mv -f /etc/default/keyboard.tmp /etc/default/keyboard
+
+}
+
+function enable_guest_session {
+
+	printf "[Seat:*]\nallow-guest=true\nautologin-guest=true" > /etc/lightdm/lightdm.conf.d/40-enable-guest.conf
+
+}
+
+function disable_guest_session {
+
+	rm -f /etc/lightdm/lightdm.conf.d/40-enable-guest.conf
+
+}
+
+function enable_screenlock {
+
+	rm -f /etc/X11/Xsession.d/98noscreenlock
+
+}
+
+function disable_screenlock {
+
+	echo 'bash -c "sleep 10; xset s off; xset -dpms" &' > /etc/X11/Xsession.d/98noscreenlock
+
+}
+
+function enable_persistent_storage {
+
+	external="$(get_enabled "$1")"
+	dirname="${2:-$NATIVE_PERSISTENT_DIRNAME}"
+
+	echo -e "Enabling persistent storage for guest user:\n  Directory name: $dirname\n  External: ${external:-false}"
+
+	clear_persistent_storage
+
+	test -n "$external" && echo "/dev/sdb1 /var/guest-data vfat defaults,auto,nofail,umask=0000 0 0 # oi-vm" >> /etc/fstab
+
+	! test -d /var/guest-data && mkdir -m 0777 /var/guest-data
+	ln -sf /var/guest-data "/etc/guest-session/skel/$dirname"
+	echo "cd \$HOME/$dirname" > /etc/guest-session/skel/.bashrc
+	echo "$dirname" > "$CONFIG_PATH"/persistent_storage_dirname.installed
+
+	echo "touch \$HOME/.skip-guest-warning-dialog # oi-vm" >> /etc/guest-session/prefs.sh
+	if test "$locale" = ca_ES -o "$locale" = ca; then
+		echo '{ sleep 4; zenity --warning --no-wrap --title="Usuari temporal" --text="Totes les dades creades seran eliminades\nen sortir, incloent les configuracions de les aplicacions.\n\nPer garantir que en cas de fallida del sistema\nno perdis els programes, desa els teus codis\nal directori '"$dirname"'."; } & # oi-vm' >> /etc/guest-session/auto.sh
+	elif test "$locale" = es_ES -o "$locale" = es; then
+		echo '{ sleep 4; zenity --warning --no-wrap --title="Usuario temporal" --text="Al salir no se van a guardar los datos creados,\nincluidas las configuraciones de las aplicaciones.\n\nPara garantizar que en caso de fallo del sistema\nno pierdas los programas, guarda tus programas\nen el directorio '"$dirname"'."; } & # oi-vm' >> /etc/guest-session/auto.sh
+	else
+		echo '{ sleep 4; zenity --warning --no-wrap --title="Temporary user" --text="All your data will be lost when leaving the session,\nincluding the configuration of the applications.\n\nTo ensure your code is not lost in case of system failure,\nsave all your code in the '"$dirname"' directory." } # oi-vm' >> /etc/guest-session/auto.sh
+	fi
+
+}
+
+function disable_persistent_storage {
+
+	echo "Disabling persistent storage for guest user"
+
+	clear_persistent_storage
+
+} 
+
+function clear_persistent_storage {
+
+	test -f /etc/guest-session/prefs.sh && grep -v oi-vm /etc/guest-session/prefs.sh > /etc/guest-session/prefs.sh.tmp || echo "" > /etc/guest-session/prefs.sh.tmp
+	mv -f /etc/guest-session/prefs.sh.tmp /etc/guest-session/prefs.sh
+
+	test -f /etc/guest-session/auto.sh && grep -v oi-vm /etc/guest-session/auto.sh > /etc/guest-session/auto.sh.tmp || echo "" > /etc/guest-session/auto.sh.tmp
+	mv -f /etc/guest-session/auto.sh.tmp /etc/guest-session/auto.sh
+
+	if ! is_enabled "$request_refresh"; then
+		umount /var/guest-data 2>/dev/null
+		test -d /var/guest-data && rm -rf /var/guest-data
+	fi
+
+	test -f "$CONFIG_PATH"/persistent_storage_dirname.installed && rm -f /etc/guest-session/skel/"$(cat "$CONFIG_PATH"/persistent_storage_dirname.installed)" "$CONFIG_PATH"/persistent_storage_dirname.installed
+
+	grep -v oi-vm /etc/fstab > /etc/fstab.tmp || echo "" > /etc/fstab.tmp
+	mv -f /etc/fstab.tmp /etc/fstab
+
+}
+
+function set_logo {
+
+	logo="$1"
+	echo "Setting up logo: $logo"
+	ln -sf "$LOGOS_PATH/$logo" /usr/share/plymouth/themes/xubuntu-logo/logo.png
+	ln -sf /usr/share/plymouth/themes/xubuntu-logo/logo.png /usr/share/xfce4/backdrops/xubuntu-wallpaper.png
+
+}
+
+function remove_logo {
+
+	echo "Removing logo"
+	rm -f /usr/share/plymouth/themes/xubuntu-logo/logo.png
+
+}
+
+function enable_dns_lockdown {
+
+	interface="${1:-$NATIVE_DNS_LOCKDOWN_INTERFACE}"
+	shift
+	explicit_whitelist="$@"
+
+	domains=""
+	ips=""
+	for item in $explicit_whitelist $(echo $dns_lockdown_implicit_exceptions | xargs | tr ' ' '\n' | sort | uniq) $NATIVE_DNS_LOCKDOWN; do
+		test -n "$item" || continue
+		echo "$item" | grep -qE '^[0-9.]+$' && ips="$ips $item" || domains="$domains $(echo $item | idn --no-tld)"
+	done
+	echo -e "Enabling DNS lockdown:\n  Whitelisted domains:${domains:- -}\n  Whitelisted IPs:${ips:- -}"
+	(test -n "$domains" && echo "$domains" | tr ' ' '\n' || echo "") > /etc/dns-lockdown/domains.whitelist
+	(test -n "$ips" && echo "$ips" | tr ' ' '\n' || echo "") > /etc/dns-lockdown/ips.whitelist
+	echo -e "ENABLED=1\nINTERFACE=$interface" > /etc/dns-lockdown/config
+	systemctl enable dns-lockdown >/dev/null
+	systemctl enable dns-lockdown-monitor >/dev/null
+	systemctl restart dns-lockdown >/dev/null
+	systemctl restart dns-lockdown-monitor >/dev/null
+}
+
+function disable_dns_lockdown {
+
+	echo "Disabling DNS lockdown"
+	echo "ENABLED=0" > /etc/dns-lockdown/config
+	systemctl disable dns-lockdown >/dev/null
+	systemctl disable dns-lockdown-monitor >/dev/null
+	systemctl stop dns-lockdown-monitor >/dev/null
+	systemctl stop dns-lockdown >/dev/null
+	rm -f /etc/dns-lockdown/domains.whitelist /etc/dns-lockdown/ips.whitelist 2>/dev/null
+
+}
+
+function firefox_settings {
+
+	homepage="$1"
+	contest_name="$2"
+	extensions="$3"
+	shift 3
+	bookmarks=($@)
+
+	test -n "$homepage" && bookmarks=("$homepage" "${contest_name:-$homepage}" "${bookmarks[@]}")
+
+	bookmarks_policy=""
+	bookmarks_descr=""
+	for ((i = 0; i < ${#bookmarks[@]}; i += 2)); do
+		bookmark_url="${bookmarks[i]}"
+		bookmark_name="${bookmarks[i+1]}"
+		test "${bookmark_url:0:4}" != "http" && bookmark_url="https://$bookmark_url"
+		test -n "$bookmarks_policy" && bookmarks_policy="$bookmarks_policy, "
+		bookmarks_policy="$bookmarks_policy{ \"url\": \"$bookmark_url\", \"name\": \"$bookmark_name\" }"
+		test -n "$bookmarks_descr" && bookmarks_descr="$bookmarks_descr, "
+		bookmarks_descr="$bookmarks_descr'$bookmark_name' => $bookmark_url"
+		dns_lockdown_implicit_exceptions="$dns_lockdown_implicit_exceptions $(get_domain "$bookmark_url")"
+	done
+
+	extensions_policy=""
+	for extension in $extensions; do
+		test "${extension:0:5}" != "http" -a "${extension:0:1}" != "/" && extension="/usr/lib/firefox-addons/distribution/extensions/$extension.xpi"
+		test -n "$extensions_policy" && extensions_policy="$extensions_policy, "
+		extensions_policy="$extensions_policy\"$extension\""
+	done
+
+	echo -e "Establishing firefox settings:\n  Homepage: $homepage\n  Bookmarks: $bookmarks_descr\n  Extensions: $extensions_policy"
+
+	! test -d /etc/firefox/policies && mkdir /etc/firefox/policies
+	echo '{
+  "policies": {
+    "Extensions": {
+      "Install": [
+        '"$extensions_policy"'
+      ]
+    },
+    "AppAutoUpdate": false,
+    "DisableAppUpdate": true,
+    "OverrideFirstRunPage": "",
+    "Homepage": {
+      "URL": "'"$homepage"'",
+      "Locked": true,
+      "Additional": [],
+      "StartPage": "homepage-locked"
+    },
+    "DNSOverHTTPS": {
+      "Enabled":  false,
+      "Locked": true
+    },
+    "DisplayBookmarksToolbar": "always",
+    "ManagedBookmarks": [
+      '"$bookmarks_policy"'
+    ]
+  }
+}' >  /etc/firefox/policies/policies.json
+
+	test -n "$homepage" && dns_lockdown_implicit_exceptions="$dns_lockdown_implicit_exceptions $(get_domain "$hompage")"
+	test -n "$bookmark_urls" && dns_lockdown_implicit_exceptions="$dns_lockdown_implicit_exceptions $(get_domain "${bookmark_urls[@]}")"
+
+}
+
+function enable_httptun {
+
+	server="$1"
+	password="$2"
+	user="${3:-$NATIVE_PROCTOR_USER}"
+	osd="$(get_enabled "$4")"
+	shift 4
+	oiproctor_diff_ignore="$@"
+
+	echo -e "Enabling httptun:\n  Server: $server\n  Password: $password\n  Proctor user: $user\n  OSD: ${osd:-false}"
+
+	test -n "$osd" && enable_osd || disable_osd
+
+	echo "$user ALL=(ALL) NOPASSWD: ALL" > "/etc/sudoers.d/$user"
+
+	chmod go-rwx "/home/$user/.ssh/authorized_keys"
+	chown "$user:$user" "/home/$user/.ssh/authorized_keys"
+
+	echo "$NATIVE_PROCTOR_DIFF_IGNORE $oiproctor_diff_ignore" | xargs | tr ' ' '\n' > "/home/$user/oiproctor_diff.ignore"
+
+	echo "ENABLED=1" > /etc/httptun
+	echo "SERVER=\"$server\"" >> /etc/httptun
+	echo "PASSWORD=\"$password\"" >> /etc/httptun
+
+	chmod go-rwx /etc/httptun
+
+	systemctl restart httptun >/dev/null
+	systemctl restart httptun-keepalive >/dev/null
+
+	dns_lockdown_implicit_exceptions="$dns_lockdown_implicit_exceptions $(get_domain "$server")"
+
+	echo "$user" > "$CONF_PATH/proctor_user.installed"
+
+}
+
+function disable_httptun {
+
+	echo "Disabling httptun"
+
+	disable_osd
+
+	rm -f /home/contestant
+
+	user="$(cat "$CONF_PATH/proctor_user.installed")"
+	if test -n "$user"; then
+		rm -f "/etc/sudoers.d/$user"
+		rm -f "/home/$user/oiproctor_diff.ignore"
+	fi
+
+	echo "ENABLED=0" > /etc/httptun
+
+	systemctl stop httptun-keepalive >/dev/null
+	systemctl stop httptun >/dev/null
+
+	rm -f "$CONF_PATH/proctor_user.installed"
+
+}
+
+function enable_osd {
+
+	systemctl enable oiproctor_osd >/dev/null
+	systemctl restart oiproctor_osd >/dev/null
+
+}
+
+function disable_osd {
+
+	systemctl disable oiproctor_osd >/dev/null
+	systemctl stop oiproctor_osd >/dev/null
+
+}
+
+function install_apt_packages {
+
+	packages="$@"
+	remove_apt_packages $(get_items_in_first_list_only "$(cat "$CONFIG_PATH"/apt.installed 2>/dev/null | xargs)" "$packages")
+	packages="$@" # $packages has been overwritten by remove_apt_packages
+
+	echo "Installing apt packages: $packages"
+
+	apt-get install -y $packages
+	echo "$packages" > "$CONFIG_PATH"/apt.installed
+
+}
+
+function remove_apt_packages {
+
+	packages="$@"
+	test "$packages" = ALL && packages="$(cat "$CONFIG_PATH"/apt.installed 2>/dev/null | xargs)"
+	test -z "$packages" && return
+
+	echo "Uninstalling apt packages: $packages"
+	apt-get remove -y $packages && test "$@" = ALL && rm -f "$CONFIG_PATH/apt.installed" 2>/dev/null
+
+}
+
+function install_pip_packages {
+
+	packages="$@"
+	remove_pip_packages $(get_items_in_first_list_only "$(cat "$CONFIG_PATH"/pip.installed 2>/dev/null | xargs)" "$packages")
+	packages="$@" # $packages has been overwritten by remove_pip_packages
+
+	echo "Installing pip packages: $packages"
+
+	pip3 install -q $packages 2>&1 | grep -v "pip as the 'root' user"
+	echo "$packages" > "$CONFIG_PATH"/pip.installed
+
+}
+
+function remove_pip_packages {
+
+	packages="$@"
+	test "$packages" = ALL && packages="$(cat "$CONFIG_PATH"/pip.installed 2>/dev/null | xargs)"
+	test -z "$packages" && return
+
+	echo "Uninstalling pip packages: $packages"
+	pip3 uninstall -q -y $packages | grep -v "pip as the 'root' user" && test "$@" = ALL && rm -f "$CONFIG_PATH/pip.installed" 2>/dev/null
+
+}
+
+# Load settings
+. "$profile_path"
+
+# Check settings
+test -z "$CONTEST_NAME" && echo "Missing CONTEST_NAME value in $profile_path!" >&2 && exit 1
+
+if test -n "$LOGO_PATH"; then
+	! test -f "$LOGOS_PATH/$LOGO_PATH" && echo "Invalid LOGO_PATH value in $profile_path: $LOGOS_PATH/$LOGO_PATH does not exist!" >&2 && exit 1
+	! test "${LOGO_PATH/*.}" = "png" && echo "Invalid LOGO_PATH format in $profile_path: $LOGO_PATH must be a png file!" >&2 && exit 1
+fi
+
+if test -n "$PROCTOR_TUNNEL_URL" -o -n "$PROCTOR_TUNNEL_PASSWORD"; then
+	test -z "$PROCTOR_TUNNEL_URL" && echo "Invalid PROCTOR_TUNNEL_URL value in $profile_path: Cannot define a value in PROCTOR_TUNNEL_PASSWORD without a value in PROCTOR_TUNNEL_URL!" >&2 && exit 1
+	test -z "$PROCTOR_TUNNEL_PASSWORD" && echo "Invalid PROCTOR_TUNNEL_PASSWORD value in $profile_path: Defining a value in PROCTOR_TUNNEL_PASSWORD is mandatory if PROCTOR_TUNNEL_URL is set!" >&2 && exit 1
+	test -n "$PROCTOR_TUNNEL_URL" -a ! "${PROCTOR_TUNNEL_URL:0:7}" != "https://" && echo "Invalid settings in $profile_path: PROCTOR_TUNNEL_URL must begin with https://!" >&2 && exit 1
+	test -n "$PROCTOR_TUNNEL_URL" && test -z "$(get_domain "$PROCTOR_TUNNEL_URL")" && echo "Invalid PROCTOR_TUNNEL_URL value in $profile_path: $PROCTOR_TUNNEL_URL is not a valid URL!" >&2 && exit 1
+	test -n "$PROCTOR_USER" -a ! -d "/home/$PROCTOR_USER" && echo "$Invalid PROCTOR_USER value in $profile_path: $PROCTOR_USER is not a valid user!" >&2 && exit 1
+	! test -f "/home/${PROCTOR_USER:-$NATIVE_PROCTOR_USER}/.ssh/authorized_keys" && echo "User ${PROCTOR_USER:-$NATIVE_PROCTOR_USER} has no \$HOME/.ssh/authorized_keys file!" >&2 && exit 1
+fi
+
+test -n "$CONTEST_URL" && test -z "$(get_domain "$CONTEST_URL")" && echo "Invalid CONTEST_URL value in $profile_path: $CONTEST_URL is not a valid URL!" >&2 && exit 1
+
+for locale in $AVAILABLE_LOCALES; do
+	grep -qE "^$locale.UTF-8 UTF-8\$" /usr/share/i18n/SUPPORTED || error "Unsupported locale $locale!"
+done
+test -n "$DEFAULT_LOCALE" && ! echo " $AVAILABLE_LOCALES $NATIVE_LOCALE " | grep -q " ${DEFAULT_LOCALE} " && error "Default locale $DEFAULT_LOCALE is not set up as available in AVAILABLE_LOCALES!"
+
+test -n "$BOOKMARKS" && for ((i = 0; i < ${#BOOKMARKS[@]}; i += 2)); do test -z "$(get_domain "${BOOKMARKS[i]}")" && echo "Invalid BOOKMARKS value in $profile_path: ${BOOKMARKS[i]} is not a valid URL!" >&2 && exit 1; done
+
+test -n "$DNS_LOCKDOWN_WHITELIST" && for domain in $DNS_LOCKDOWN_WHITELIST; do test -z "$(get_domain "$domain")" && echo "Invalid DNS_LOCKDOWN_WHITELIST value in $profile_path: $domain is not a valid domain or IP!" >&2 && exit 1; done
+
+# We need to disable the lockdown as some settings might require internet access
+dns-lockdown stop
+
+# Perform settings
+echo "Contest: $CONTEST_NAME"
+
+is_enabled "$APT_PACKAGES" && install_apt_packages "$APT_PACKAGES" || remove_apt_packages ALL
+is_enabled "$PIP_PACKAGES" && install_pip_packages "$PIP_PACKAGES" || remove_pip_packages ALL
+
+install_locales "$AVAILABLE_LOCALES"
+default_locale "$DEFAULT_LOCALE"
+
+is_enabled "$GUEST_SESSION" && enable_guest_session || disable_guest_session
+
+is_enabled "$DISABLE_SCREENLOCK" && disable_screenlock || enable_screenlock
+
+is_enabled "$PERSISTENT_STORAGE" && enable_persistent_storage "$PERSISTENT_EXTERNAL" "$PERSISTENT_DIRNAME" || disable_persistent_storage
+
+firefox_settings "$CONTEST_URL" "$CONTEST_NAME" "${BROWSER_EXTENSIONS[@]}" "${BOOKMARKS[@]}"
+
+is_enabled "$LOGO_PATH" && set_logo "$LOGO_PATH" || remove_logo
+
+is_enabled "$PROCTOR_TUNNEL_URL" && enable_httptun "$PROCTOR_TUNNEL_URL" "$PROCTOR_TUNNEL_PASSWORD" "$PROCTOR_USER" "$PROCTOR_OSD" "$PROCTOR_DIFF_IGNORE" || disable_httptun
+
+is_enabled "$DNS_LOCKDOWN" && enable_dns_lockdown "$DNS_LOCKDOWN_INTERFACE" "$DNS_LOCKDOWN_WHITELIST" || disable_dns_lockdown
+
+# Update vm last update timestamp
+vm_version_update
+
+# Save profile as current profile
+! test -e "$default_profile_path" || test -L "$default_profile_path" && test "$default_profile_path" != "$profile_path" && ln -sf "$profile_path" "$default_profile_path"
