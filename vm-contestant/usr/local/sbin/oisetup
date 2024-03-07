@@ -318,13 +318,13 @@ function enable_httptun {
 	server="$1"
 	password="$2"
 	user="${3:-$NATIVE_PROCTOR_USER}"
-	osd="$(get_enabled "$4")"
+	monitor="$(get_enabled "$4")"
 	shift 4
 	oiproctor_diff_ignore="$@"
 
-	echo -e "Enabling httptun:\n  Server: $server\n  Password: $password\n  Proctor user: $user\n  OSD: ${osd:-false}"
+	echo -e "Enabling httptun:\n  Server: $server\n  Password: $password\n  Proctor user: $user\n  Monitor: ${monitor:-false}"
 
-	test -n "$osd" && enable_osd || disable_osd
+	test -n "$monitor" && enable_monitor || disable_monitor
 
 	echo "$user ALL=(ALL) NOPASSWD: ALL" > "/etc/sudoers.d/$user"
 
@@ -352,7 +352,7 @@ function disable_httptun {
 
 	echo "Disabling httptun"
 
-	disable_osd
+	disable_monitor
 
 	rm -f /home/contestant
 
@@ -371,17 +371,17 @@ function disable_httptun {
 
 }
 
-function enable_osd {
+function enable_monitor {
 
-	systemctl enable oiproctor_osd >/dev/null
-	systemctl restart oiproctor_osd >/dev/null
+	systemctl enable oiproctor_monitor >/dev/null
+	systemctl restart oiproctor_monitor >/dev/null
 
 }
 
-function disable_osd {
+function disable_monitor {
 
-	systemctl disable oiproctor_osd >/dev/null
-	systemctl stop oiproctor_osd >/dev/null
+	systemctl disable oiproctor_monitor >/dev/null
+	systemctl stop oiproctor_monitor >/dev/null
 
 }
 
@@ -486,7 +486,7 @@ firefox_settings "$CONTEST_URL" "$CONTEST_NAME" "${BROWSER_EXTENSIONS[@]}" "${BO
 
 is_enabled "$LOGO_PATH" && set_logo "$LOGO_PATH" || remove_logo
 
-is_enabled "$PROCTOR_TUNNEL_URL" && enable_httptun "$PROCTOR_TUNNEL_URL" "$PROCTOR_TUNNEL_PASSWORD" "$PROCTOR_USER" "$PROCTOR_OSD" "$PROCTOR_DIFF_IGNORE" || disable_httptun
+is_enabled "$PROCTOR_TUNNEL_URL" && enable_httptun "$PROCTOR_TUNNEL_URL" "$PROCTOR_TUNNEL_PASSWORD" "$PROCTOR_USER" "$PROCTOR_MONITOR" "$PROCTOR_DIFF_IGNORE" || disable_httptun
 
 is_enabled "$DNS_LOCKDOWN" && enable_dns_lockdown "$DNS_LOCKDOWN_INTERFACE" "$DNS_LOCKDOWN_WHITELIST" || disable_dns_lockdown
 

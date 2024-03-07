@@ -1,0 +1,10 @@
+[Unit]
+Description=DNS lockdown monitor
+After=syslog.target network.target remote-fs.target nss-lookup.target
+
+[Service]
+Type=exec
+ExecStart=/usr/local/sbin/dns-lockdown-monitor
+
+[Install]
+WantedBy=multi-user.target

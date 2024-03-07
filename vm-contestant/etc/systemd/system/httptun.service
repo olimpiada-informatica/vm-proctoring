@@ -1,0 +1,10 @@
+[Unit]
+Description=HTTP TUN
+After=syslog.target network.target remote-fs.target nss-lookup.target
+StartLimitInterval=0
+[Service]
+ExecStart=/usr/local/sbin/httptun
+Restart=always
+RestartSec=30
+[Install]
+WantedBy=multi-user.target

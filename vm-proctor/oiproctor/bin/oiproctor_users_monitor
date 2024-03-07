@@ -10,6 +10,7 @@ const { exec }	= require("child_process");
 const config	= {};
 var users_map   = {};
 var cache   	= {};
+var alerts      = [];
 
 function date_formatted(date) {
 
@@ -29,6 +30,41 @@ function date_formatted(date) {
 const requestListener = function (req, res) {
 
     	const params = new URLSearchParams(req.url.split('?').slice(1).join('?'));
+
+        const monitor = (req, res) => {
+
+                const since       = parseInt(params.get('since'));
+
+                let output = "";
+                output  += `<!DOCTYPE html><html><head><title>${config.title}</title><meta http-equiv="refresh" content="${config.ping_interval}"></head><body>`;
+
+                output  += '<style>.timestamp, .user, .message { display: inline-block; margin: 0 1em; }</style>';
+
+                alerts.forEach(alert => {
+			if (since && since < alert.timestamp) return;
+			output += `<div><div class="timestamp">${alert.timestamp}</div><div class="user">${alert.user}</div><div class="message">${alert.message}</div></div>`;
+		});
+
+                output  += '</body></html>';
+                res.write(output);
+
+        };
+
+        const notify = (req, res) => {
+
+                const msg       = params.get('msg');
+
+                if (!msg) return res.write('{ "error": "Missing msg" }');
+
+                const ip        = req.headers['x-forward-for'] || req.socket.remoteAddress;
+
+                if (!ip.match(new RegExp(config.update_whitelist))) return console.error(`Invalid source IP ${ip} trying to notiy ${msg}`);
+
+                alerts.push({ timestamp: Date.now(), user: ip, message: msg });
+
+                res.write('{ "success": true }');
+
+        };
 
     	const update = (req, res) => {
 
@@ -125,6 +161,8 @@ exec('killall -s SIGHUP dnsmasq');
 
     	if (req.url.startsWith('/status')) status(req, res);
     	else if (req.url.startsWith('/update')) update(req, res);
+	else if (req.url.startsWith('/alerts')) monitor(req, res);
+        else if (req.url.startsWith('/notify')) notify(req, res);
 
     	res.end();
 

@@ -42,7 +42,9 @@ Desde el directorio donde están el archivo `docker-compose.yml` y el directorio
 
 3. A medida que los/las concursantes vayan identificandose en el CMS, sus nombres de usuario aparecerán en verde en la página /status del servidor de vigilancia
 
-4. A través de la página /admin, se accede a la terminal de control introduciendo como usuario *proctor* y como contraseña la que esté definida en el archivo oiproctor/etc/proctor.pwd. Una vez dentro, el comando *oiproctor* puede realizar diversas acciones de control sobre las máquina de concursantes. Ejecutando `oiproctor help` se pueden ver todas las acciones disponibles. Otros comandos disponibles en el sistema: wget, telnet, netstat, ping, route, dig, less, vi, ps, top, ssh, scp, sudo, apt, ...
+4. A través de la página `/admin`, se accede a la terminal de control introduciendo como usuario *proctor* y como contraseña la que esté definida en el archivo oiproctor/etc/proctor.pwd. Una vez dentro, el comando *oiproctor* puede realizar diversas acciones de control sobre las máquina de concursantes. Ejecutando `oiproctor help` se pueden ver todas las acciones disponibles. Otros comandos disponibles en el sistema: wget, telnet, netstat, ping, route, dig, less, vi, ps, top, ssh, scp, sudo, apt, ...
+
+5. A través de la página `/alerts` se pueden leer alertas de los sistemas de los concursantes.
 
 # Diagrama de funcionamiento
 
@@ -98,6 +100,8 @@ From the directory where the `docker-compose.yml` file and `oiproctor/` are loca
 3. As contestants identify themselves in the CMS, their usernames will appear in green on the `/status` page of the surveillance server
 
 4. Through the `/admin` page, you access the control terminal by entering proctor as the user and the password defined in the `oiproctor/etc/proctor.pwd` file. Once inside, the *oiproctor* command can perform various control actions on the contestants' machines. Running `oiproctor help` you can see all available actions. Other available commands in the system: wget, telnet, netstat, ping, route, dig, less, vi, ps, top, ssh, scp, sudo, apt, …
+
+5. Through the `/alerts` page, you can receive alerts from the contestants' systems.
 
 # Operation Diagram
 

@@ -1,0 +1,12 @@
+[Unit]
+Description=DNS lockdown
+After=syslog.target network.target remote-fs.target nss-lookup.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/local/sbin/dns-lockdown start
+ExecStop=/usr/local/sbin/dns-lockdown stop
+
+[Install]
+WantedBy=multi-user.target

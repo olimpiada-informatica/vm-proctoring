@@ -5,6 +5,7 @@ Estos scripts permiten crear una máquina virtual de concursante en la que los o
  - Conocer en tiempo real qué máquinas están encendidas
  - Conocer qué usuarios CMS hay detrás de cada máquina
  - Limitar el acceso a internet
+ - Recibir alertas
  - Desplegar configuraciones en caliente
  - Obtener archivos de las máquinas virtuales
  - Eliminar el perfil de los concursantes entre dos sesiones de concurso
@@ -29,6 +30,7 @@ These scripts allow for the creation of a contestant virtual machine in which th
  - Know in real-time which machines are turned on
  - Know which CMS users are behind each machine
  - Limit internet access
+ - Receive alerts
  - Deploy configurations on the fly
  - Retrieve files from the virtual machines
  - Delete the contestant's profile between two contest sessions
