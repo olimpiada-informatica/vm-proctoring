@@ -1,43 +1,45 @@
 #!/bin/bash
 
 export DISPLAY=":0"
-export XAUTHORITY="/home/contestant/.Xauthority"
 IFACE="tap0"
 INTERVAL="5"
 NOTIFY_TIMEOUT="5"
 DISK_FS="ext4"
 DISK_LIMIT="95"
 TARGET="10.9.0.1"
+OSD_FORCE_REFRESH=60
 
 function screen_size {
-        xrandr 2>/dev/null | grep '*' | uniq | awk '{print $1}'
+	xrandr 2>/dev/null | grep '*' | uniq | awk '{print $1}'
 }
 
 function disk_space {
-        df -t ext4 --output=pcent,avail,target -h | sed -e 1d -e 's/^\s\+//' -e 's/\s\+/ /g'
+	df -t ext4 --output=pcent,avail,target -h | sed -e 1d -e 's/^\s\+//' -e 's/\s\+/ /g'
 }
 
 function get_user {
-	users="$(loginctl list-sessions --no-pager --no-legend | awk '/seat0/{print $3}' | sort | uniq)"
-	for user in $users; do
-		echo " " | sudo -u "$user" osd_cat -p top -A center -c grey -d 1 && echo $user && break
-	done
+	loginctl list-sessions --no-pager --no-legend | awk '/seat0/{print $3}' | sort | uniq | head -1
 }
 
 function get_message {
 	ip="$(ip addr show "$IFACE" 2>/dev/null | awk '/inet / {print $2}' | cut -f1 -d'/')"
 	if test -n "$ip"; then
-    		echo "$ip" | cut -d. -f3-
+		echo "$ip" | cut -d. -f3-
 	else
-    		mac="$(cat /var/run/randommac)"
-    		echo "$mac"
+		mac="$(cat /var/run/randommac)"
+		echo "$mac"
 	fi
 }
 
 function osd {
 	user="$1"
 	message="$2"
-	echo "$message" | sudo -u "$user" osd_cat -p top -A center -c grey -d 999999999999 >/dev/null2>&1 &
+	if test "${user//-*}" = "guest"; then
+		export XAUTHORITY="/home/contestant/.Xauthority"
+	else
+		unset XAUTHORITY
+	fi
+	echo "$message" | sudo -u "$user" osd_cat -p top -A center -c grey -d "$OSD_FORCE_REFRESH" >/dev/null 2>&1 &
 	echo $!
 	test "$user" = "lightdm" && sudo -u lightdm /bin/sh -c 'xdotool windowfocus $(xdotool search --name "lightdm-gtk-greeter" | head -1)'
 }
@@ -49,26 +51,26 @@ old_disk_space=
 old_screen_size="$(screen_size)"
 
 while true; do
-        new_message="$(get_message)"
-        new_user="$(get_user)"
-        new_screen_size="$(screen_size)"
-        if test "$new_message" != "$last_message" || test -n "$last_pid" -a ! -d /proc/"${last_pid:-0}" || test -n "$new_user" -a "$new_user" != "$last_user"; then
-                test -n "$last_pid" && killall -9 osd_cat 2>/dev/null
-                last_pid="$(osd "$new_user" "$new_message")"
-                last_user="$new_user"
-                last_message="$new_message"
-        fi
-        if test "$new_screen_size" != "$old_screen_size"; then
-                wget -T "${NOTIFY_TIMEOUT:-5}" -O /dev/null "http://$TARGET/notify?msg=$old_screen_size > $new_screen_size $(uptime | cut -d, -f1)"
-                old_screen_size="$new_screen_size"
-        fi
-        new_disk_space="$(disk_space)"
-        if test "$new_disk_space" != "$old_disk_space"; then
-                IFS=$'\n'
-                for line in $(disk_space); do
-                        test "$(echo "$line" | cut -d% -f1)" -gt "$DISK_LIMIT" && wget -T "${NOTIFY_TIMEOUT:-5}" -O /dev/null "http://$TARGET/notify?msg=$line"
-                done
-                old_disk_space="$new_disk_space"
-        fi
-        sleep ${INTERVAL:-5}
+	new_message="$(get_message)"
+	new_user="$(get_user)"
+	new_screen_size="$(screen_size)"
+	if test "$new_message" != "$last_message" || test -n "$last_pid" -a ! -d /proc/"${last_pid:-0}" || test -n "$new_user" -a "$new_user" != "$last_user"; then
+		test -n "$last_pid" && killall -9 osd_cat 2>/dev/null
+		last_pid="$(osd "$new_user" "$new_message")"
+		last_user="$new_user"
+		last_message="$new_message"
+	fi
+	if test "$new_screen_size" != "$old_screen_size"; then
+		wget -T "${NOTIFY_TIMEOUT:-5}" -O /dev/null "http://$TARGET/notify?msg=$old_screen_size > $new_screen_size $(uptime | cut -d, -f1)"
+		old_screen_size="$new_screen_size"
+	fi
+	new_disk_space="$(disk_space)"
+	if test "$new_disk_space" != "$old_disk_space"; then
+		IFS=$'\n'
+		for line in $(disk_space); do
+			test "$(echo "$line" | cut -d% -f1)" -gt "$DISK_LIMIT" && wget -T "${NOTIFY_TIMEOUT:-5}" -O /dev/null "http://$TARGET/notify?msg=$line"
+		done
+		old_disk_space="$new_disk_space"
+	fi
+	sleep ${INTERVAL:-5}
 done

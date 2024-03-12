@@ -141,7 +141,7 @@ case "$command" in
     active)
    	 test -n "$(get_daemon_pid)" -a -f "$PROCTOR_CONNECTIONS_PATH" && (
    		 ignore_ips="$(get_ignore_ips)"
-		 for macip in $(cat "$PROCTOR_CONNECTIONS_PATH") $(cat "$alias_ips_path" | cut -d' ' -f2); do
+		 for macip in $(cat "$PROCTOR_CONNECTIONS_PATH") $(cat "$alias_ips_path" 2>/dev/null | cut -d' ' -f2); do
    			 echo " $ignore_ips " | grep -q " $(echo "$macip" | cut -d' ' -f2) " || echo "$macip"
    		 done | sort  | uniq
    	 )
@@ -167,7 +167,7 @@ case "$command" in
 	 echo " $ignore_ips " | sed "s/ $ip //g" > "$ignore_ips_path" # Un-ignore the alias, since it has been reset
 	 ;;
     aliases)
-   	 cat "$alias_ips_path" | cut -d" " -f2 | sort
+   	 cat "$alias_ips_path" 2>/dev/null | cut -d" " -f2 | sort
    	 ;;
     users)
    	 cat "$PROCTOR_USERS_PATH" 2>/dev/null | cut -d" " -f2 | sort
@@ -178,7 +178,7 @@ case "$command" in
    	 done
    	 for host in $(get_all_destinations "$destination" true); do
    		 test "$destination" = "all" && echo -n "$host "
-   		 ping -c1 "$host" >/dev/null && echo alive || echo dead
+   		 for i in $(seq 1 -1 0); do ping -c1 "$host" >/dev/null && break || test $i -gt 0 && sleep 5; done && echo alive || echo dead
    	 done
    	 ;;
     whois)
