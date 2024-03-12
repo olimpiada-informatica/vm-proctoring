@@ -39,7 +39,7 @@ function osd {
 	else
 		unset XAUTHORITY
 	fi
-	echo "$message" | sudo -u "$user" osd_cat -p top -A center -c grey -d "$OSD_FORCE_REFRESH" >/dev/null 2>&1 &
+	echo "$message" | sudo -u "$user" osd_cat -p top -A center -c grey -d $(($OSD_FORCE_REFRESH + ${INTERVAL:-5})) >/dev/null 2>&1 &
 	echo $!
 	test "$user" = "lightdm" && sudo -u lightdm /bin/sh -c 'xdotool windowfocus $(xdotool search --name "lightdm-gtk-greeter" | head -1)'
 }
@@ -47,6 +47,7 @@ function osd {
 last_user=
 last_message=
 last_pid=
+last_timestamp=
 old_disk_space=
 old_screen_size="$(screen_size)"
 
@@ -54,11 +55,12 @@ while true; do
 	new_message="$(get_message)"
 	new_user="$(get_user)"
 	new_screen_size="$(screen_size)"
-	if test "$new_message" != "$last_message" || test -n "$last_pid" -a ! -d /proc/"${last_pid:-0}" || test -n "$new_user" -a "$new_user" != "$last_user"; then
+	if test "$new_message" != "$last_message" || test -n "$last_pid" -a ! -d /proc/"${last_pid:-0}" || test -n "$new_user" -a "$new_user" != "$last_user" || test $(($new_timestamp - $OSD_FORCE_REFRESH)) -gt ${last_timestamp:-0}; then
 		test -n "$last_pid" && killall -9 osd_cat 2>/dev/null
 		last_pid="$(osd "$new_user" "$new_message")"
 		last_user="$new_user"
 		last_message="$new_message"
+		last_timestamp="$new_timestamp"
 	fi
 	if test "$new_screen_size" != "$old_screen_size"; then
 		wget -T "${NOTIFY_TIMEOUT:-5}" -O /dev/null "http://$TARGET/notify?msg=$old_screen_size > $new_screen_size $(uptime | cut -d, -f1)"
