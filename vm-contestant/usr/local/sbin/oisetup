@@ -112,7 +112,7 @@ function default_locale {
 	echo "Setting up locale: $locale"
 	countrycode="${locale: -2}"
 	countrycode="${countrycode,,}"
-	update-locale "LANG=$locale.UTF-8" "LANGUAGE=${locale:0:2}" 
+	update-locale "LANG=$locale.UTF-8" "LC_ALL=$locale.UTF-8" "LANGUAGE=$locale"
 	setxkbmap "$countrycode"
 	sed 's/XKBLAYOUT=.*/XKBLAYOUT="'"$countrycode"'"/' /etc/default/keyboard > /etc/default/keyboard.tmp
 	mv -f /etc/default/keyboard.tmp /etc/default/keyboard
