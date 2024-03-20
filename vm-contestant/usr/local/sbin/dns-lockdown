@@ -43,7 +43,7 @@ start() {
 	# Accept DNS requests to whitelisted domains
     	for domain in $(cat "$CONFIG_PATH/domains.whitelist"); do
             	domain_hex=$(perl -e 'print map {chr(length($_)).$_} split /\./, "'$domain'"' | xxd -p | tr -dc '0-9a-f')
-            	iptables -A OUTPUT -o "$INTERFACE" -p udp --dport 53 -d 10.0.2.3 -m string --hex-string "|$domain_hex|" --algo bm -j ACCEPT -m comment --comment "$domain"
+            	iptables -A OUTPUT -o "$INTERFACE" -p udp --dport 53 -m string --hex-string "|$domain_hex|" --algo bm -j ACCEPT -m comment --comment "$domain"
     	done
 
 	# Accept outgoing/incoming traffic to/from whitelisted IPs
