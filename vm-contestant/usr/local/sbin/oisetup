@@ -12,7 +12,7 @@ NATIVE_PERSISTENT_DIRNAME="oi"
 NATIVE_PROCTOR_USER="oi"
 NATIVE_PROCTOR_DIFF_IGNORE="\.profile \.skip-guest-warning-dialog \.xsessionrc \.cache/.* \.config/Code/ \.config/gtk-3\.0/ \.config/pulse/ \.config/Thunar/ \.config/user-dirs\.dirs \.config/user-dirs\.locale \.config/xfce4/.* \.config/xubuntu/ \.config/xubuntu/xdg-xubuntu-templates\.cfg \.gnupg/ \.ICEauthority \.local/ \.local/share/ \.vboxclient-clipboard\.pid \.vboxclient-display-svga-x11\.pid \.vboxclient-draganddrop\.pid \.vboxclient-seamless\.pid \.config/Code/User/settings\.json \.vscode/argv\.json \.vscode-cli/ \.vscode/extensions/.* \.config/Code/.* \.mozilla/firefox/.* \.Xauthority \.xsession-errors \.xsession-errors\.old Desktop/ Documents/ Downloads/ Music/ Pictures/ Public/ Templates/ Videos/ Descargas/ Documentos/ Escritorio/ Imágenes/ Música/ Plantillas/ Público/ Vídeos/"
 NATIVE_DNS_LOCKDOWN="edgecastcdn.net root-servers.net cdn.mozilla.net services.mozilla.com googleapis.com detectportal.firefox.com o.lencr.org spocs.getpockercom telemetry.mozilla.org ssl.gstatic.com ipv4only.arpa clients6.google.com dataops.mozgcp.net ocsp.digicert.com dscq.akamai.net l.google.com phicdn.net ocsp.pki.goog mozaws.net addons.mozilla.org cloudfront.net akamaiedge.net daisy.ubuntu.com in-addr.arpa ip6.arpa connectivity-check.ubuntu.com"
-NATIVE_DNS_LOCKDOWN_INTERFACE="enp0s3"
+NATIVE_DNS_LOCKDOWN_INTERFACE="en+"
 IGNORE_SYSTEM_CHECKS=
 
 # Global variables
@@ -243,6 +243,7 @@ function enable_dns_lockdown {
 	systemctl enable dns-lockdown-monitor >/dev/null
 	systemctl restart dns-lockdown >/dev/null
 	systemctl restart dns-lockdown-monitor >/dev/null
+
 }
 
 function disable_dns_lockdown {

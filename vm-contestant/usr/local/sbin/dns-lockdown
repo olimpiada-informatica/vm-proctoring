@@ -28,6 +28,11 @@ start() {
    	iptables -P FORWARD DROP
    	iptables -P OUTPUT  DROP
 
+	# Block all IPv6 traffic by default
+	ip6tables -P INPUT   DROP
+	ip6tables -P FORWARD DROP
+	ip6tables -P OUTPUT  DROP
+
 	# Accept ping, traceroute, etc
 	iptables -A INPUT  -p icmp -j ACCEPT
 	iptables -A OUTPUT -p icmp -j ACCEPT
