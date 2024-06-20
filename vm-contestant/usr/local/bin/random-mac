@@ -1,0 +1,2 @@
+#!/bin/bash
+shuf -i 0-$((16**12)) -n 1 -o /var/run/randommac

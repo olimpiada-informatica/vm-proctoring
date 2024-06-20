@@ -1,0 +1,2 @@
+#!/bin/sh
+cat /etc/vm_version

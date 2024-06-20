@@ -1,0 +1,42 @@
+#!/bin/bash
+
+function error {
+    	echo $@ >&2
+    	exit 1
+}
+
+test $# -eq 1 || error "Invalid arguments. Expected: $(basename "$0") <source_file>"
+
+srcpath="$1"
+test -f "$srcpath" || error "File $srcpath does not exist!"
+
+extension=
+if grep -qE '^\s*(int|void|char|string|float|long|double)\s+[a-zA-Z0-9_]' "$srcpath"; then
+    	extension=cpp
+elif grep -qE '^\s*((import|from|def)\s+|(print|input|int|chr|ord)(\s*\())' "$srcpath"; then
+    	extension=py
+elif grep -qE '^\s*class\s+' "$srcpath"; then
+    	extension=java
+else
+    	error "Unsupported programming language!"
+fi
+
+tmppath="$(mktemp -u)" || error "Unable to generate temporary path"
+
+if test "${1##*.}" != "$extension"; then
+    	test "$extension" = "java" && newsrcpath="$srcpath.$extension" || newsrcpath="$tmppath.$extension" # In Java file we need to preserve the filename as it has to correspond with the class name
+    	cp "$srcpath" "$newsrcpath" || error "Error creating temporary file $newsrcpath"
+    	srcpath="$newsrcpath"
+fi
+
+case "$extension" in
+    	cpp)
+            	g++ -std=c++17 -Wall -O2 "$srcpath" -o "$tmppath" && "$tmppath" <&0
+            	;;
+    	py)
+            	python3 "$srcpath" <&0
+            	;;
+    	java)
+            	javac "$srcpath" && java "$(basename "${srcpath%.*}")" <&0
+            	;;
+esac
