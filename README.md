@@ -17,7 +17,7 @@ Estos scripts permiten crear una máquina virtual de concursante en la que los o
 # Instalación
 
 1. Instala vm-proctor en un servidor siguiendo las instrucciones de vm-proctor/README.md
-2. Instala vm-contestant en una VM siguiendo las instrucciones de vm-contestant/README.md
+2. Instala vm-contestant en una VM (probado con VirtualBox, VMWare, Boxes y UTM) siguiendo las instrucciones de vm-contestant/README.md
 
 
 -----
@@ -42,4 +42,4 @@ These scripts allow for the creation of a contestant virtual machine in which th
 # Installation
 
 1. Install vm-proctor in a server while following instructions from vm-proctor/README.md
-2. Install vm-contestant in a VM while following instructions from vm-contestant/README.md
+2. Install vm-contestant in a VM (tested with VirtualBox, VMWare, Boxes and UTM) while following instructions from vm-contestant/README.md

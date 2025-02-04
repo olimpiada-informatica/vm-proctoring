@@ -443,6 +443,15 @@ function remove_pip_packages {
 
 }
 
+function update_system_password {
+
+	user="$1"
+	pass="$2"
+    echo "Updating system user password: $user"
+    sed -E "s|^$user:.*|$user:$pass::0:99999:7:::|" -i /etc/shadow # Generate the password hash with `openssl passwd -6 -salt <salt> <password>`
+
+}
+
 # Load settings
 . "$profile_path"
 
@@ -479,6 +488,8 @@ dns-lockdown stop
 
 # Perform settings
 echo "Contest: $CONTEST_NAME"
+
+test -n "$NATIVE_PROCTOR_SHADOW" && update_system_password "$NATIVE_PROCTOR_USER" "$NATIVE_PROCTOR_SHADOW"
 
 is_enabled "$APT_PACKAGES" && install_apt_packages "$APT_PACKAGES" || remove_apt_packages ALL
 is_enabled "$PIP_PACKAGES" && install_pip_packages "$PIP_PACKAGES" || remove_pip_packages ALL

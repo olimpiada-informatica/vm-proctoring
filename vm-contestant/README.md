@@ -14,6 +14,7 @@
   LOGO_PATH="oie.png"        # Debe ser un archivo PNG. El archivo debe estar ubicado en /etc/oisetup/logos/
   AVAILABLE_LOCALES="ca_ES es_ES en_US en_GB" # Idiomas de interfaz disponibles
   DEFAULT_LOCALE="ca_ES"     # Idioma predeterminado cuando el sistema se inicia
+  NATIVE_PROCTOR_SHADOW=     # Set the /etc/shadow password of the native proctor user (i.e. user 'oi'). You can obtain the shadowed password with  `openssl passwd -6 -salt <salt> <password>`
   PROCTOR_TUNNEL_URL="https://proctor.olimpiada-informatica.org" # URL donde se encuentra el proctor. Debe dejarse vacío para desactivarlo
   PROCTOR_TUNNEL_PASSWORD="" # Contraseña del túnel del proctor. Debe corresponderse con el archivo tunnel.pwd del servidor de vigilancia. Debe dejarse vacío para desactivar el túnel del proctor
   PROCTOR_USER="oi"          # Este usuario debe existir previamente
