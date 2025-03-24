@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Use with Xubuntu 22.04
+# Use with Xubuntu 24.04
 
 # Setup
 CONFIG_PATH="/etc/oisetup"
@@ -168,6 +168,9 @@ function enable_persistent_storage {
 }
 EOF
 
+	test -d /etc/guest-session/skel/Desktop || mkdir /etc/guest-session/skel/Desktop
+	ln -sf /var/guest-data /etc/guest-session/skel/Desktop/"$dirname"
+
 	echo "touch \$HOME/.skip-guest-warning-dialog # oi-vm" >> /etc/guest-session/prefs.sh
 	if test "$locale" = ca_ES -o "$locale" = ca; then
 		echo '{ sleep 4; zenity --warning --no-wrap --title="Usuari temporal" --text="Totes les dades creades seran eliminades\nen sortir, incloent les configuracions de les aplicacions.\n\nPer garantir que en cas de fallida del sistema\nno perdis els programes, desa els teus codis\nal directori '"$dirname"'."; } & # oi-vm' >> /etc/guest-session/auto.sh
@@ -200,7 +203,10 @@ function clear_persistent_storage {
 		test -d /var/guest-data && rm -rf /var/guest-data
 	fi
 
-	test -f "$CONFIG_PATH"/persistent_storage_dirname.installed && rm -f /etc/guest-session/skel/"$(cat "$CONFIG_PATH"/persistent_storage_dirname.installed)" "$CONFIG_PATH"/persistent_storage_dirname.installed
+	if test -f "$CONFIG_PATH"/persistent_storage_dirname.installed; then
+                olddirname="$(cat "$CONFIG_PATH"/persistent_storage_dirname.installed)"
+		rm -f /etc/guest-session/skel/"$olddirname" /etc/guest-session/skel/Desktop/"$olddirname" "$CONFIG_PATH"/persistent_storage_dirname.installed
+	fi
 
 	grep -v oi-vm /etc/fstab > /etc/fstab.tmp || echo "" > /etc/fstab.tmp
 	mv -f /etc/fstab.tmp /etc/fstab
@@ -263,7 +269,7 @@ function firefox_settings {
 	homepage="$1"
 	contest_name="$2"
 	extensions="$3"
-	shift 3
+	test $# -ge 3 && shift 3 || shift $#
 	bookmarks=($@)
 
 	test -n "$homepage" && bookmarks=("$homepage" "${contest_name:-$homepage}" "${bookmarks[@]}")
@@ -318,7 +324,7 @@ function firefox_settings {
   }
 }' >  /etc/firefox/policies/policies.json
 
-	test -n "$homepage" && dns_lockdown_implicit_exceptions="$dns_lockdown_implicit_exceptions $(get_domain "$hompage")"
+	test -n "$homepage" && dns_lockdown_implicit_exceptions="$dns_lockdown_implicit_exceptions $(get_domain "$homepage")"
 	test -n "$bookmark_urls" && dns_lockdown_implicit_exceptions="$dns_lockdown_implicit_exceptions $(get_domain "${bookmark_urls[@]}")"
 
 }
@@ -366,10 +372,13 @@ function disable_httptun {
 
 	rm -f /home/contestant
 
-	user="$(cat "$CONF_PATH/proctor_user.installed")"
-	if test -n "$user"; then
-		rm -f "/etc/sudoers.d/$user"
-		rm -f "/home/$user/oiproctor_diff.ignore"
+	PROCTOR_USER_PATH="$CONF_PATH/proctor_user.installed"
+	if test -f "$PROCTOR_USER_PATH"; then
+		user="$(cat "$PROCTOR_USER_PATH")"
+		if test -n "$user"; then
+			rm -f "/etc/sudoers.d/$user"
+			rm -f "/home/$user/oiproctor_diff.ignore"
+		fi
 	fi
 
 	echo "ENABLED=0" > /etc/httptun
@@ -427,7 +436,7 @@ function install_pip_packages {
 
 	echo "Installing pip packages: $packages"
 
-	pip3 install -q $packages 2>&1 | grep -v "pip as the 'root' user"
+	pip3 install --break-system-packages -q $packages 2>&1 | grep -v "pip as the 'root' user"
 	echo "$packages" > "$CONFIG_PATH"/pip.installed
 
 }
@@ -439,7 +448,7 @@ function remove_pip_packages {
 	test -z "$packages" && return
 
 	echo "Uninstalling pip packages: $packages"
-	pip3 uninstall -q -y $packages | grep -v "pip as the 'root' user" && test "$@" = ALL && rm -f "$CONFIG_PATH/pip.installed" 2>/dev/null
+	pip3 uninstall --break-system-packages -q -y $packages | grep -v "pip as the 'root' user" && test "$@" = ALL && rm -f "$CONFIG_PATH/pip.installed" 2>/dev/null
 
 }
 
@@ -503,7 +512,7 @@ is_enabled "$DISABLE_SCREENLOCK" && disable_screenlock || enable_screenlock
 
 is_enabled "$PERSISTENT_STORAGE" && enable_persistent_storage "$PERSISTENT_EXTERNAL" "$PERSISTENT_DIRNAME" || disable_persistent_storage
 
-firefox_settings "$CONTEST_URL" "$CONTEST_NAME" "${BROWSER_EXTENSIONS[@]}" "${BOOKMARKS[@]}"
+firefox_settings "$CONTEST_URL" "$CONTEST_NAME" "${BROWSER_EXTENSIONS[*]}" "${BOOKMARKS[@]}"
 
 is_enabled "$LOGO_PATH" && set_logo "$LOGO_PATH" || remove_logo
 

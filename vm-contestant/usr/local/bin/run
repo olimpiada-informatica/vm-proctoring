@@ -10,16 +10,25 @@ test $# -eq 1 || error "Invalid arguments. Expected: $(basename "$0") <source_fi
 srcpath="$1"
 test -f "$srcpath" || error "File $srcpath does not exist!"
 
-extension=
-if grep -qE '^\s*(int|void|char|string|float|long|double)\s+[a-zA-Z0-9_]' "$srcpath"; then
-    	extension=cpp
-elif grep -qE '^\s*((import|from|def)\s+|(print|input|int|chr|ord)(\s*\())' "$srcpath"; then
-    	extension=py
-elif grep -qE '^\s*class\s+' "$srcpath"; then
-    	extension=java
-else
-    	error "Unsupported programming language!"
-fi
+extension="${1##*.}"
+case "$extension" in
+        cpp|py|java)
+                ;;
+        cxx|c++)
+                extension="cpp"
+                ;;
+        *)
+                if grep -qE '^\s*(int|void|char|string|float|long|double)\s+[a-zA-Z0-9_]' "$srcpath"; then
+                        extension=cpp
+                elif grep -qE '^\s*((import|from|def)\s+|(print|input|int|chr|ord)(\s*\())' "$srcpath"; then
+                        extension=py
+                elif grep -qE '^\s*class\s+' "$srcpath"; then
+                        extension=java
+                else
+                        error "Unsupported programming language!"
+                fi
+                ;;
+esac
 
 tmppath="$(mktemp -u)" || error "Unable to generate temporary path"
 
