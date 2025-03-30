@@ -5,10 +5,14 @@ function error {
     	exit 1
 }
 
-test $# -eq 1 || error "Invalid arguments. Expected: $(basename "$0") <source_file>"
+test $# -eq 1 -o $# -eq 2 || error "Invalid arguments. Expected: $(basename "$0") <source_file> [input_file]"
 
 srcpath="$1"
 test -f "$srcpath" || error "File $srcpath does not exist!"
+inputpath="$1"
+if test -n "$inputpath"; then
+	test -f "$inputpath" || error "File $inputpath does not exist!"
+fi
 
 extension="${1##*.}"
 case "$extension" in
@@ -38,14 +42,22 @@ if test "${1##*.}" != "$extension"; then
     	srcpath="$newsrcpath"
 fi
 
-case "$extension" in
-    	cpp)
-            	g++ -std=c++17 -Wall -O2 "$srcpath" -o "$tmppath" && "$tmppath" <&0
-            	;;
-    	py)
-            	python3 "$srcpath" <&0
-            	;;
-    	java)
-            	javac "$srcpath" && java "$(basename "${srcpath%.*}")" <&0
-            	;;
-esac
+function dorun() {
+	case "$extension" in
+    		cpp)
+            		g++ -std=c++17 -Wall -O2 "$srcpath" -o "$tmppath" && "$tmppath" <&0
+            		;;
+    		py)
+            		python3 "$srcpath" <&0
+            		;;
+    		java)
+            		javac "$srcpath" && java "$(basename "${srcpath%.*}")" <&0
+            		;;
+	esac
+}
+
+if test -n "$inputpath"; then
+	dorun < "$inputpath"
+else
+	dorun < &0
+fi
