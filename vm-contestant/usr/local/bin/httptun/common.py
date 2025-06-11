@@ -34,4 +34,4 @@ def parse_packets(stream, callback):
 
 def serialize_packets(packets):
     return b"".join(
-        struct.pack(HDR_FORMAT, len(packet)) + packet for packet in packets
+        struct.pack(HDR_FORMAT, len(packet)) + packet for packet in packets)

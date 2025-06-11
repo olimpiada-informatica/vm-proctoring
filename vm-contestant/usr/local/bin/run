@@ -48,7 +48,7 @@ function dorun() {
             		g++ -std=c++17 -Wall -O2 "$srcpath" -o "$tmppath" && "$tmppath" <&0
             		;;
     		py)
-            		python3 "$srcpath" <&0
+            		pypy3 "$srcpath" <&0
             		;;
     		java)
             		javac "$srcpath" && java "$(basename "${srcpath%.*}")" <&0

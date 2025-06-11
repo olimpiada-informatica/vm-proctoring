@@ -264,6 +264,21 @@ function disable_dns_lockdown {
 
 }
 
+function enable_cms_tracking {
+
+	cms_contest_id="$1"
+	echo "Enabling CMS tracking. CMS contest ID: $cms_contest_id"
+	echo "$cms_contest_id" > "$CONFIG_PATH"/cms_contest_id.installed
+
+}
+
+function disable_cms_tracking {
+
+	echo "Disabling CMS tracking"
+	rm -f "$CONFIG_PATH"/cms_contest_id.installed 2>/dev/null
+
+}
+
 function firefox_settings {
 
 	homepage="$1"
@@ -519,6 +534,8 @@ is_enabled "$LOGO_PATH" && set_logo "$LOGO_PATH" || remove_logo
 is_enabled "$PROCTOR_TUNNEL_URL" && enable_httptun "$PROCTOR_TUNNEL_URL" "$PROCTOR_TUNNEL_PASSWORD" "$PROCTOR_USER" "$PROCTOR_MONITOR" "$PROCTOR_DIFF_IGNORE" || disable_httptun
 
 is_enabled "$DNS_LOCKDOWN" && enable_dns_lockdown "$DNS_LOCKDOWN_INTERFACE" "$DNS_LOCKDOWN_WHITELIST" || disable_dns_lockdown
+
+is_enabled "$CONTEST_CMS_ID" && enable_cms_tracking "$CONTEST_CMS_ID" || disable_cms_tracking
 
 # Update vm last update timestamp
 vm_version_update

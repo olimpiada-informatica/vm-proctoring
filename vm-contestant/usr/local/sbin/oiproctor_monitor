@@ -8,9 +8,11 @@ DISK_FS="ext4"
 DISK_LIMIT="95"
 TARGET="10.9.0.1"
 OSD_FORCE_REFRESH=60
+CONFIG_PATH="/etc/oisetup"
 
 function screen_size {
-	xrandr 2>/dev/null | grep '*' | uniq | awk '{print $1}'
+	export XAUTHORITY=/home/contestant/.Xauthority
+	sudo xrandr -d :0 2>/dev/null | grep '*' | uniq | awk '{print $1}'
 }
 
 function disk_space {
@@ -19,6 +21,10 @@ function disk_space {
 
 function get_user {
 	loginctl list-sessions --no-pager --no-legend | awk '/seat0/{print $3}' | sort | uniq | head -1
+}
+
+function get_contest_user {
+	sudo get_cms_user
 }
 
 function get_message {
@@ -54,6 +60,7 @@ old_screen_size="$(screen_size)"
 while true; do
 	new_message="$(get_message)"
 	new_user="$(get_user)"
+	new_contest_user="$(get_contest_user)"
 	new_screen_size="$(screen_size)"
 	if test "$new_message" != "$last_message" || test -n "$last_pid" -a ! -d /proc/"${last_pid:-0}" || test -n "$new_user" -a "$new_user" != "$last_user" || test $(($new_timestamp - $OSD_FORCE_REFRESH)) -gt ${last_timestamp:-0}; then
 		test -n "$last_pid" && killall -9 osd_cat 2>/dev/null
@@ -73,6 +80,10 @@ while true; do
 			test "$(echo "$line" | cut -d% -f1)" -gt "$DISK_LIMIT" && wget -T "${NOTIFY_TIMEOUT:-5}" -O /dev/null "http://$TARGET/notify?msg=$line"
 		done
 		old_disk_space="$new_disk_space"
+	fi
+	if test -n "$new_contest_user"; then
+		contest_id="$(cat "$CONFIG_PATH/cms_contest_id.installed")"
+		wget -T "${NOTIFY_TIMEOUT:-5}" -O /dev/null "http://$TARGET/update?${contest_id}_login=$new_contest_user"
 	fi
 	sleep ${INTERVAL:-5}
 done

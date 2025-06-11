@@ -98,7 +98,8 @@ def main():
             print("recv: received status code " + str(ans.status_code) + ": " +
                   ans.text)
             sys.exit(1)
-            def process_packet(data):
+
+        def process_packet(data):
             packet_mac = get_mac(data)
             if packet_mac == my_mac or packet_mac == BROADCAST:
                 tap.write(data)

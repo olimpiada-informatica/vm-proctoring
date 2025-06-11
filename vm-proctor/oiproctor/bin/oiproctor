@@ -4,7 +4,7 @@ CONFIG_PATH="/opt/oiproctor/etc/config"
 
 . "$CONFIG_PATH"
 
-for key in PROCTOR_SERVER_PATH PROCTOR_LOG_HTTPTUN_PATH PROCTOR_CONNECTIONS_PATH PROCTOR_LOG_USERS_PATH PROCTOR_TUNNEL_PASSWORD VM_PROCTOR_USER VM_PROCTOR_PRIVKEY_PATH VM_CONTESTANT_USER VM_PROCTOR_DIFF_IGNORE_PATH CONTEST_SHORTNAME; do
+for key in PROCTOR_SERVER_PATH PROCTOR_LOG_HTTPTUN_PATH PROCTOR_CONNECTIONS_PATH PROCTOR_USERS_PATH PROCTOR_LOG_USERS_PATH PROCTOR_TUNNEL_PASSWORD VM_PROCTOR_USER VM_PROCTOR_PRIVKEY_PATH VM_CONTESTANT_USER VM_PROCTOR_DIFF_IGNORE_PATH CONTEST_SHORTNAME; do
     test -z "${!key}" && echo "Missing $key in $CONFIG_PATH" >&2 && exit 1
 done
 
@@ -170,7 +170,7 @@ case "$command" in
    	 cat "$alias_ips_path" 2>/dev/null | cut -d" " -f2 | sort
    	 ;;
     users)
-   	 cat "$PROCTOR_USERS_PATH" 2>/dev/null | cut -d" " -f2 | sort
+   	 cat "$PROCTOR_USERS_PATH" 2>/dev/null | sort
    	 ;;
     ping)
    	 for key in destination; do
@@ -206,16 +206,16 @@ case "$command" in
          run_in_vm "$destination" sudo dns-lockdown block $@
    	 ;;
     tell)
-   	 run_in_vm "$destination" sudo -u '$(basename $(readlink /home/'$VM_CONTESTANT_USER'))' zenity --display :0 --info --width 400 --title "'$VM_DIALOG_TITLE'" --text "'$description'"
+   	 run_in_vm "$destination" DISPLAY=:0 sudo -u '$(basename $(readlink /home/'$VM_CONTESTANT_USER'))' zenity --info --width 400 --title "'$VM_DIALOG_TITLE'" --text "'$description'"
    	 ;;
     alert|warn)
-   	 run_in_vm "$destination" sudo -u '$(basename $(readlink /home/'$VM_CONTESTANT_USER'))' zenity --display :0 --warning --width 400 --title "'$VM_DIALOG_TITLE'" --text "'<span font=\"32\" foreground=\"red\">$description</span>'"
+   	 run_in_vm "$destination" DISPLAY=:0 sudo -u '$(basename $(readlink /home/'$VM_CONTESTANT_USER'))' zenity --warning --width 400 --title "'$VM_DIALOG_TITLE'" --text "'<span font=\"32\" foreground=\"red\">$description</span>'"
    	 ;;
     yesno)
-   	 run_in_vm "$destination" sudo -u '$(basename $(readlink /home/'$VM_CONTESTANT_USER'))' zenity --display :0 --question --width 400 --title "'$VM_DIALOG_TITLE'" --text "'$description'" "&&" echo YES "||" echo NO
+   	 run_in_vm "$destination" DISPLAY=:0 sudo -u '$(basename $(readlink /home/'$VM_CONTESTANT_USER'))' zenity --question --width 400 --title "'$VM_DIALOG_TITLE'" --text "'$description'" "&&" echo YES "||" echo NO
    	 ;;
     ask)
-   	 run_in_vm "$destination" sudo -u '$(basename $(readlink /home/'$VM_CONTESTANT_USER'))' zenity --display :0 --entry --width 400 --title "'$VM_DIALOG_TITLE'" --text "'$description'" "||" echo UNDEFINED
+   	 run_in_vm "$destination" DISPLAY=:0 sudo -u '$(basename $(readlink /home/'$VM_CONTESTANT_USER'))' zenity --entry --width 400 --title "'$VM_DIALOG_TITLE'" --text "'$description'" "||" echo UNDEFINED
    	 ;;
     clean)
          run_in_vm "$destination" sudo -u '$(basename $(readlink /home/'$VM_CONTESTANT_USER'))' killall zenity
