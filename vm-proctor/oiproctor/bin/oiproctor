@@ -205,6 +205,14 @@ case "$command" in
    	 shift
          run_in_vm "$destination" sudo dns-lockdown block $@
    	 ;;
+    lock)
+         shift
+         run_in_vm "$destination" sudo mv /etc/lightdm/lightdm.conf.d/40-enable-lock-message.conf.disable /etc/lightdm/lightdm.conf.d/40-enable-lock-message.conf "&&" sudo mv /etc/lightdm/lightdm.conf.d/40-enable-guest.conf /etc/lightdm/lightdm.conf.d/40-enable-guest.conf.disable "&&" sudo systemctl restart lightdm "2>&1"
+         ;;
+    unlock)
+         shift
+         run_in_vm "$destination" sudo mv /etc/lightdm/lightdm.conf.d/40-enable-lock-message.conf /etc/lightdm/lightdm.conf.d/40-enable-lock-message.conf.disable "&&" sudo mv /etc/lightdm/lightdm.conf.d/40-enable-guest.conf.disable /etc/lightdm/lightdm.conf.d/40-enable-guest.conf "&&" sudo systemctl restart lightdm "2>&1"
+         ;;
     tell)
    	 run_in_vm "$destination" DISPLAY=:0 sudo -u '$(basename $(readlink /home/'$VM_CONTESTANT_USER'))' zenity --info --width 400 --title "'$VM_DIALOG_TITLE'" --text "'$description'"
    	 ;;

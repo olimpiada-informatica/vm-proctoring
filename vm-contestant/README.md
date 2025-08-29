@@ -21,6 +21,7 @@
   PROCTOR_MONITOR=true       # Mostrar o no el final de la IP del túnel en la parte superior de la pantalla, y monitorizar el espacio de disco libre y la resolución de pantalla
   PROCTOR_DIFF_IGNORE=""     # Lista de archivos a ignorar al hacer diff en el directorio home del concursante. Es una RegExp
   GUEST_SESSION=true         # Habilitar sesión de invitado: todos los datos del concursante se eliminarán cuando cierren sesión
+  LOCK_MESSAGE="La sesión se iniciará automáticamente" # Mensaje a mostrar cuando la sesión está bloqueada por el adminstrador del concurso. También se puede configurar LOCK_TITLE, LOCK_WIDTH, LOCK_TYPE y LOCK_OPTIONS
   DISABLE_SCREENLOCK=true    # Deshabilitar el bloqueo de pantalla, para que los usuarios no sean desconectados por inactividad. Muy recomendado si GUEST_SESSION está habilitado
   CONTEST_URL="https://concurso.olimpiada-informatica.org"
   PERSISTENT_STORAGE=true    # Crear un directorio en el directorio home del concursante donde puedan almacenar datos que no se eliminarán cuando cierren sesión
@@ -64,6 +65,7 @@
   PROCTOR_MONITOR=true       # Whether to display the ending of the tunnel IP at the top of the screen or not, and monitor available diskspace and screen resolution
   PROCTOR_DIFF_IGNORE=""     # List of files to ignore when diff-ing the contestant's home directory. It is a RegExp
   GUEST_SESSION=true         # Enable guest session: all contestant data will be removed when they log out
+  LOCK_MESSAGE="The session will start automatically" # Message to display when the session is locked by the contest administrator. You can also set up LOCK_TITLE, LOCK_WIDTH, LOCK_TYPE and LOCK_OPTIONS
   DISABLE_SCREENLOCK=true    # Disable the screenlock, so users are not logged out for inactivity. Very much recommended if GUEST_SESSION is enabled
   CONTEST_URL="https://concurso.olimpiada-informatica.org"
   PERSISTENT_STORAGE=true    # Create a directory in the contestant's home directory where they can store data that will bot be deleted when they log out

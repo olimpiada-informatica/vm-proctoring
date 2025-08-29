@@ -9,6 +9,7 @@ PROCTOR_USER="oi"
 PROCTOR_MONITOR=true
 PROCTOR_DIFF_IGNORE=""
 GUEST_SESSION=true
+LOCK_MESSAGE_BODY="La sesión está bloqueada.\nLa sesión se desbloqueará automáticamente cuando el concurso vaya a comenzar."
 DISABLE_SCREENLOCK=true
 CONTEST_URL=""
 PERSISTENT_STORAGE=true
