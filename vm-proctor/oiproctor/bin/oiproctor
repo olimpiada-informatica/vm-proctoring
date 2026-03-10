@@ -282,8 +282,8 @@ Available commands:
     disk:    reports vm's available disk space
     uptime:  reports vm's uptime and cpu usage
     mem:     reports vm's available memory (ram + swap)
-    allow:   Add an IP or domain to the whitelist in the vm
-    block:   Remove an IP or domain to the whitelist in the vm
+    allow:   Add an IP or domain to the allowlist in the vm
+    block:   Remove an IP or domain from the allowlist in the vm
     tell:    opens in the vm a window with a message
     alert:   opens in the vm a window with a warning message
     yesno:   opens in the vm a window with a message and "yes" "no" buttons

@@ -11,7 +11,7 @@ NATIVE_LOCALE="en_US"
 NATIVE_PERSISTENT_DIRNAME="oi"
 NATIVE_PROCTOR_USER="oi"
 NATIVE_PROCTOR_DIFF_IGNORE="\.profile \.skip-guest-warning-dialog \.xsessionrc \.cache/.* \.config/Code/ \.config/gtk-3\.0/ \.config/pulse/ \.config/Thunar/ \.config/user-dirs\.dirs \.config/user-dirs\.locale \.config/xfce4/.* \.config/xubuntu/ \.config/xubuntu/xdg-xubuntu-templates\.cfg \.gnupg/ \.ICEauthority \.local/ \.local/share/ \.vboxclient-clipboard\.pid \.vboxclient-display-svga-x11\.pid \.vboxclient-draganddrop\.pid \.vboxclient-seamless\.pid \.config/Code/User/settings\.json \.vscode/argv\.json \.vscode-cli/ \.vscode/extensions/.* \.config/Code/.* \.mozilla/firefox/.* \.Xauthority \.xsession-errors \.xsession-errors\.old Desktop/ Documents/ Downloads/ Music/ Pictures/ Public/ Templates/ Videos/ Descargas/ Documentos/ Escritorio/ Imágenes/ Música/ Plantillas/ Público/ Vídeos/"
-NATIVE_DNS_LOCKDOWN="edgecastcdn.net root-servers.net cdn.mozilla.net services.mozilla.com googleapis.com detectportal.firefox.com o.lencr.org spocs.getpockercom telemetry.mozilla.org ssl.gstatic.com ipv4only.arpa clients6.google.com dataops.mozgcp.net ocsp.digicert.com dscq.akamai.net l.google.com phicdn.net ocsp.pki.goog mozaws.net addons.mozilla.org cloudfront.net akamaiedge.net daisy.ubuntu.com in-addr.arpa ip6.arpa connectivity-check.ubuntu.com"
+NATIVE_DNS_LOCKDOWN="edgecastcdn.net root-servers.net cdn.mozilla.net services.mozilla.com googleapis.com detectportal.firefox.com o.lencr.org spocs.getpockercom telemetry.mozilla.org ssl.gstatic.com ipv4only.arpa clients6.google.com dataops.mozgcp.net ocsp.digicert.com dscq.akamai.net l.google.com phicdn.net ocsp.pki.goog mozaws.net addons.mozilla.org cloudfront.net akamaiedge.net daisy.ubuntu.com in-addr.arpa ip6.arpa connectivity-check.ubuntu.com gstatic.com fonts.gstatic.com fonts.googleapis.com recaptcha.net www.recaptcha.net"
 NATIVE_DNS_LOCKDOWN_INTERFACE="en+"
 IGNORE_SYSTEM_CHECKS=
 
@@ -244,17 +244,17 @@ function enable_dns_lockdown {
 
 	interface="${1:-$NATIVE_DNS_LOCKDOWN_INTERFACE}"
 	shift
-	explicit_whitelist="$@"
+	explicit_allowlist="$@"
 
 	domains=""
 	ips=""
-	for item in $explicit_whitelist $(echo $dns_lockdown_implicit_exceptions | xargs | tr ' ' '\n' | sort | uniq) $NATIVE_DNS_LOCKDOWN; do
+	for item in $explicit_allowlist $(echo $dns_lockdown_implicit_exceptions | xargs | tr ' ' '\n' | sort | uniq) $NATIVE_DNS_LOCKDOWN; do
 		test -n "$item" || continue
 		echo "$item" | grep -qE '^[0-9.]+$' && ips="$ips $item" || domains="$domains $(echo $item | idn --no-tld)"
 	done
 	echo -e "Enabling DNS lockdown:\n  Whitelisted domains:${domains:- -}\n  Whitelisted IPs:${ips:- -}"
-	(test -n "$domains" && echo "$domains" | tr ' ' '\n' || echo "") > /etc/dns-lockdown/domains.whitelist
-	(test -n "$ips" && echo "$ips" | tr ' ' '\n' || echo "") > /etc/dns-lockdown/ips.whitelist
+	(test -n "$domains" && echo "$domains" | tr ' ' '\n' || echo "") > /etc/dns-lockdown/domains.allowlist
+	(test -n "$ips" && echo "$ips" | tr ' ' '\n' || echo "") > /etc/dns-lockdown/ips.allowlist
 	echo -e "ENABLED=1\nINTERFACE=$interface" > /etc/dns-lockdown/config
 	systemctl enable dns-lockdown >/dev/null
 	systemctl enable dns-lockdown-monitor >/dev/null
@@ -271,7 +271,7 @@ function disable_dns_lockdown {
 	systemctl disable dns-lockdown-monitor >/dev/null
 	systemctl stop dns-lockdown-monitor >/dev/null
 	systemctl stop dns-lockdown >/dev/null
-	rm -f /etc/dns-lockdown/domains.whitelist /etc/dns-lockdown/ips.whitelist 2>/dev/null
+	rm -f /etc/dns-lockdown/domains.allowlist /etc/dns-lockdown/ips.allowlist 2>/dev/null
 
 }
 
@@ -539,7 +539,7 @@ test -n "$DEFAULT_LOCALE" && ! echo " $AVAILABLE_LOCALES $NATIVE_LOCALE " | grep
 
 test -n "$BOOKMARKS" && for ((i = 0; i < ${#BOOKMARKS[@]}; i += 2)); do test -z "$(get_domain "${BOOKMARKS[i]}")" && echo "Invalid BOOKMARKS value in $profile_path: ${BOOKMARKS[i]} is not a valid URL!" >&2 && exit 1; done
 
-test -n "$DNS_LOCKDOWN_WHITELIST" && for domain in $DNS_LOCKDOWN_WHITELIST; do test -z "$(get_domain "$domain")" && echo "Invalid DNS_LOCKDOWN_WHITELIST value in $profile_path: $domain is not a valid domain or IP!" >&2 && exit 1; done
+test -n "$DNS_LOCKDOWN_ALLOWLIST" -o -n "$DNS_LOCKDOWN_WHITELIST" && for domain in $DNS_LOCKDOWN_ALLOWLIST $DNS_LOCKDOWN_WHITELIST; do test -z "$(get_domain "$domain")" && echo "Invalid DNS_LOCKDOWN_ALLOWLIST value in $profile_path: $domain is not a valid domain or IP!" >&2 && exit 1; done
 
 # We need to disable the lockdown as some settings might require internet access
 dns-lockdown stop
@@ -569,7 +569,7 @@ set_lock_message "$CONTEST_NAME" "$LOCK_MESSAGE_BODY" "$LOCK_MESSAGE_TITLE" "$LO
 
 is_enabled "$PROCTOR_TUNNEL_URL" && enable_httptun "$PROCTOR_TUNNEL_URL" "$PROCTOR_TUNNEL_PASSWORD" "$PROCTOR_USER" "$PROCTOR_MONITOR" "$PROCTOR_DIFF_IGNORE" || disable_httptun
 
-is_enabled "$DNS_LOCKDOWN" && enable_dns_lockdown "$DNS_LOCKDOWN_INTERFACE" "$DNS_LOCKDOWN_WHITELIST" || disable_dns_lockdown
+is_enabled "$DNS_LOCKDOWN" && enable_dns_lockdown "$DNS_LOCKDOWN_INTERFACE" "$DNS_LOCKDOWN_ALLOWLIST $DNS_LOCKDOWN_WHITELIST" || disable_dns_lockdown
 
 is_enabled "$CONTEST_CMS_ID" && enable_cms_tracking "$CONTEST_CMS_ID" || disable_cms_tracking
 

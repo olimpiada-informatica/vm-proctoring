@@ -45,20 +45,20 @@ start() {
 	iptables -A INPUT  -i tap0 -j ACCEPT 2>/dev/null
 	iptables -A OUTPUT -o tap0 -j ACCEPT 2>/dev/null
 
-	# Accept DNS requests to whitelisted domains
-    	for domain in $(cat "$CONFIG_PATH/domains.whitelist"); do
+	# Accept DNS requests to allowed domains
+    	for domain in $(cat "$CONFIG_PATH/domains.allowlist"); do
             	domain_hex=$(perl -e 'print map {chr(length($_)).$_} split /\./, "'$domain'"' | xxd -p | tr -dc '0-9a-f')
             	iptables -A OUTPUT -o "$INTERFACE" -p udp --dport 53 -m string --hex-string "|$domain_hex|" --algo bm -j ACCEPT -m comment --comment "$domain"
     	done
 
-	# Accept outgoing/incoming traffic to/from whitelisted IPs
-	ipset create whitelisted_ips hash:net 2>/dev/null
-	ipset flush  whitelisted_ips
-    	for ip in $(cat "$CONFIG_PATH/ips.whitelist"); do
-		ipset add whitelisted_ips "$ip" 2>&1 | grep -v "it's already added"
+	# Accept outgoing/incoming traffic to/from allowed IPs
+	ipset create allowlist_ips hash:net 2>/dev/null
+	ipset flush  allowlist_ips
+    	for ip in $(cat "$CONFIG_PATH/ips.allowlist"); do
+		ipset add allowlist_ips "$ip" 2>&1 | grep -v "it's already added"
 	done
-	iptables -A INPUT  -i "$INTERFACE" -m set --match-set whitelisted_ips dst -j ACCEPT
-	iptables -A OUTPUT -o "$INTERFACE" -m set --match-set whitelisted_ips dst -j ACCEPT
+	iptables -A INPUT  -i "$INTERFACE" -m set --match-set allowlist_ips dst -j ACCEPT
+	iptables -A OUTPUT -o "$INTERFACE" -m set --match-set allowlist_ips dst -j ACCEPT
 
 	# Accept responses to accepted connections
 	iptables -A INPUT  -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
@@ -70,11 +70,11 @@ allow() {
 
 	for item in $@; do
 		echo "$item" | grep -vE '^[0-9.]+$' | idn --no-tld
-	done | cat - "$CONFIG_PATH/domains.whitelist" | sort | uniq | sponge "$CONFIG_PATH/domains.whitelist"
+	done | cat - "$CONFIG_PATH/domains.allowlist" | sort | uniq | sponge "$CONFIG_PATH/domains.allowlist"
 
 	for item in $@; do
 		echo "$item" | grep -E '^[0-9.]+$'
-	done | cat - "$CONFIG_PATH/ips.whitelist" | sort | uniq | sponge "$CONFIG_PATH/ips.whitelist"
+	done | cat - "$CONFIG_PATH/ips.allowlist" | sort | uniq | sponge "$CONFIG_PATH/ips.allowlist"
 
 	stop
 	start
@@ -85,12 +85,12 @@ block() {
 
 	for item in $@; do
 		echo "$item" | grep -qvE '^[0-9.]+$' || continue
-		sed "s/^$item\$//" -i "$CONFIG_PATH/domains.whitelist"
+		sed "s/^$item\$//" -i "$CONFIG_PATH/domains.allowlist"
 	done
 
 	for item in $@; do
 		echo "$item" | grep -qE '^[0-9.]+$' || continue
-		sed "s/^$(echo $item | idn --no-tld)\$//" -i "$CONFIG_PATH/ips.whitelist"
+		sed "s/^$(echo $item | idn --no-tld)\$//" -i "$CONFIG_PATH/ips.allowlist"
 	done
 
 	stop

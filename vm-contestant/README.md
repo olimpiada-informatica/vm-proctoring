@@ -30,7 +30,7 @@
   BOOKMARKS=("aprende.olimpiada-informatica.org" "Manuales") # Lista de marcadores para añadir a Firefox, deben ingresarse como pares de URL + Nombre
   BROWSER_EXTENSIONS="oimonitor"
   DNS_LOCKDOWN=true # Restringir o no el acceso a internet para que solo ciertas URLs estén disponibles (marcadores, sitio web del concurso, servidor del proctor, otros nombres de dominio o IPs en lista blanca
-  DNS_LOCKDOWN_WHITELIST=""  # Lista de dominios o IPs explícitamente en lista blanca
+  DNS_LOCKDOWN_ALLOWLIST=""  # Lista de dominios o IPs explícitamente en lista blanca
   DNS_LOCKDOWN_INTERFACE=""  # Restringir el acceso a internet solo en esta interfaz de red
   APT_PACKAGES=""            # Paquetes APT adicionales para instalar
   PIP_PACKAGES=""            # Paquetes PIP adicionales para instalar
@@ -73,8 +73,8 @@
   PERSISTENT_DIRNAME="oie"   # Name of the persistent storage directory in the contestant's home
   BOOKMARKS=("aprende.olimpiada-informatica.org" "Manuales") # List of bookmarks to add to Firefox, they must be entered as pairs of URL + Name
   BROWSER_EXTENSIONS="oimonitor"
-  DNS_LOCKDOWN=true          # Whether to lock down internet access so only certain URLs are available (bookmarks, contest website, proctor server, other whitelisted domainnames or IPs
-  DNS_LOCKDOWN_WHITELIST=""  # List of explicitly whitelisted domains or IPs
+  DNS_LOCKDOWN=true          # Whether to lock down internet access so only certain URLs are available (bookmarks, contest website, proctor server, other domains or IPs in the allowlist)
+  DNS_LOCKDOWN_ALLOWLIST=""  # List of allowed domains or IPs
   DNS_LOCKDOWN_INTERFACE=""  # Lock internet access only on this network interface
   APT_PACKAGES=""            # Additional APT packages to install
   PIP_PACKAGES=""            # Additional PIP packages to install

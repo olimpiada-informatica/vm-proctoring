@@ -1,7 +1,7 @@
 #!/bin/node
 
 const CONFIG_PATH   	= '/opt/oiproctor/etc/config';
-const MANDATORY_PARAMS  = [ 'listen_port', 'listen_host', 'contest_shortname', 'proctor_connections_path', 'proctor_users_path', 'title', 'ping_interval', 'update_whitelist', 'users' ];
+const MANDATORY_PARAMS  = [ 'listen_port', 'listen_host', 'contest_shortname', 'proctor_connections_path', 'proctor_users_path', 'title', 'ping_interval', 'update_allowlist', 'users' ];
 
 const http  	= require('http');
 const fs    	= require('fs');
@@ -58,7 +58,7 @@ const requestListener = function (req, res) {
 
                 const ip        = req.headers['x-forward-for'] || req.socket.remoteAddress;
 
-                if (!ip.match(new RegExp(config.update_whitelist))) return console.error(`Invalid source IP ${ip} trying to notiy ${msg}`);
+                if (!ip.match(new RegExp(config.update_allowlist)) && !ip.match(new RegExp(config.update_whitelist))) return console.error(`Invalid source IP ${ip} trying to notiy ${msg}`);
 
                 alerts.push({ timestamp: Date.now(), user: ip, message: msg });
 
@@ -75,7 +75,7 @@ const requestListener = function (req, res) {
 
             	const ip    	= req.socket.remoteAddress;
 
-            	if (!ip.match(new RegExp(config.update_whitelist))) return console.error(`Invalid source IP ${ip} trying to register ${user}`);
+            	if (!ip.match(new RegExp(config.update_allowlist)) && !ip.match(new RegExp(config.update_whitelist))) return console.error(`Invalid source IP ${ip} trying to register ${user}`);
 
             	const user_obj  = user => { return { user: user, ip: ip, timestamp: Date.now() } };
 
