@@ -1,0 +1,83 @@
+#!/bin/bash
+
+# Setup
+HOSTS_PATH="/etc/hosts"
+
+clear=
+reads=()
+updates=()
+values=()
+deletes=()
+while test $# -gt 0; do
+    case $1 in
+        -h|--help)
+            echo "Usage: $(basename "$0") [-c] [-r <hostname|ip>] [-u <hostname> <ip>]... [-d <hostname|ip>]..."
+            echo "  Updates hosts file"
+            echo "  -c clears all static hosts, before any changes"
+            echo "  -r Reads static hosts, before any changes"
+            echo "  -u Updates static hosts"
+            echo "  -d Deletes static hosts, after any changes"
+            exit 0
+            ;;
+        -c)
+            clear=true
+            ;;
+        -r)
+            reads+=("$2")
+            shift
+            ;;
+        -u)
+            updates+=("$2")
+            values+=("$3")
+            shift 2
+            ;;
+        -d)
+            deletes+=("$2")
+            shift
+            ;;
+        *) 
+            echo "Unknown parameter: $1"
+            exit 1
+            ;;
+    esac
+    shift
+done
+
+function delete_host() {
+    target="$1"
+    grep -vE "^[[:space:]]*(($target[[:space:]].*)|(.*[[:space:]]$target[[:space:]]*))#[[:space:]]*OISETUP.*$" "$tmp_path" > "$tmp_path"2
+    mv -f "$tmp_path"2 "$tmp_path"
+}
+
+for ((i = 0; i < ${#reads[@]}; i += 1)); do
+    target="${reads[$i]}"
+    grep -E "^[[:space:]]*(($target[[:space:]].*)|(.*[[:space:]]$target[[:space:]]*))#[[:space:]]*OISETUP.*$" "$HOSTS_PATH"
+done
+
+if test -n "$clear" -o ${#updates[@]} -gt 0 -o ${#deletes[@]} -gt 0; then
+    tmp_path="$(mktemp)"
+    cp -f "$HOSTS_PATH" "$tmp_path"
+
+    test -n "$clear" && sed -E '/^.*#[[:space:]]*OISETUP/d' -i "$tmp_path"
+    
+    for ((i = 0; i < ${#updates[@]}; i += 1)); do
+        hostname="${updates[$i]}"
+        ip="${values[i]:-0.0.0.0}"
+
+        delete_host "$hostname"
+
+        echo "$ip $hostname # OISETUP" >> "$tmp_path"
+    done
+    
+    for ((i = 0; i < ${#deletes[@]}; i += 1)); do
+        hostname="${deletes[$i]}"
+
+        delete_host "$hostname"
+    done
+
+    if ! diff "$tmp_path" "$HOSTS_PATH" >/dev/null; then
+        mv -f "$tmp_path" "$HOSTS_PATH"
+    else
+        rm -f "$tmp_path"
+    fi
+fi

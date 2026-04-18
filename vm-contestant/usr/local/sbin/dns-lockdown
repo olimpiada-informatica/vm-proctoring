@@ -5,9 +5,9 @@ CONFIG_PATH="/etc/dns-lockdown"
 
 stop() {
 
-    	iptables -F
-    	iptables -X
-    	iptables -t nat -F
+	iptables -F
+	iptables -X
+	iptables -t nat -F
 	iptables -t nat -X
 	iptables -t mangle -F
 	iptables -t mangle -X
@@ -24,9 +24,9 @@ start() {
 	test -z "$ENABLED" -o "$ENABLED" = 0 -o "$ENABLED" = false -o "$ENABLED" = No -o "$ENABLED" = NO && exit 0
 
 	# Block all traffic by default
-    	iptables -P INPUT   DROP
-   	iptables -P FORWARD DROP
-   	iptables -P OUTPUT  DROP
+    iptables -P INPUT   DROP
+	iptables -P FORWARD DROP
+	iptables -P OUTPUT  DROP
 
 	# Block all IPv6 traffic by default
 	ip6tables -P INPUT   DROP
@@ -46,15 +46,15 @@ start() {
 	iptables -A OUTPUT -o tap0 -j ACCEPT 2>/dev/null
 
 	# Accept DNS requests to allowed domains
-    	for domain in $(cat "$CONFIG_PATH/domains.allowlist"); do
-            	domain_hex=$(perl -e 'print map {chr(length($_)).$_} split /\./, "'$domain'"' | xxd -p | tr -dc '0-9a-f')
-            	iptables -A OUTPUT -o "$INTERFACE" -p udp --dport 53 -m string --hex-string "|$domain_hex|" --algo bm -j ACCEPT -m comment --comment "$domain"
-    	done
+	for domain in $(cat "$CONFIG_PATH/domains.allowlist"); do
+		domain_hex=$(perl -e 'print map {chr(length($_)).$_} split /\./, "'$domain'"' | xxd -p | tr -dc '0-9a-f')
+		iptables -A OUTPUT -o "$INTERFACE" -p udp --dport 53 -m string --hex-string "|$domain_hex|" --algo bm -j ACCEPT -m comment --comment "$domain"
+	done
 
 	# Accept outgoing/incoming traffic to/from allowed IPs
 	ipset create allowlist_ips hash:net 2>/dev/null
 	ipset flush  allowlist_ips
-    	for ip in $(cat "$CONFIG_PATH/ips.allowlist"); do
+	for ip in $(cat "$CONFIG_PATH/ips.allowlist"); do
 		ipset add allowlist_ips "$ip" 2>&1 | grep -v "it's already added"
 	done
 	iptables -A INPUT  -i "$INTERFACE" -m set --match-set allowlist_ips dst -j ACCEPT
@@ -76,8 +76,7 @@ allow() {
 		echo "$item" | grep -E '^[0-9.]+$'
 	done | cat - "$CONFIG_PATH/ips.allowlist" | sort | uniq | sponge "$CONFIG_PATH/ips.allowlist"
 
-	stop
-	start
+	restart
 
 }
 
@@ -93,33 +92,31 @@ block() {
 		sed "s/^$(echo $item | idn --no-tld)\$//" -i "$CONFIG_PATH/ips.allowlist"
 	done
 
-	stop
-	start
+	restart
 
 }
 
 case "$1" in
-    	start)
-            	start
-            	;;
-    	stop)
-            	stop
-            	;;
-    	restart|reload)
-            	stop
-            	start
-            	;;
+	start)
+		start
+		;;
+	stop)
+		stop
+		;;
+	restart|reload)
+		stop
+		start
+		;;
 	allow)
 		shift
 		allow $@
-            	;;
+        ;;
 	block)
 		shift
 		block $@
-            	;;
+        ;;
 	*)
 		echo "Unknown action: $1" >&2
 		exit 1
 		;;
 esac
-
