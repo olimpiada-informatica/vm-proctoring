@@ -43,28 +43,34 @@
 # Comandos
 
 Gestión del acceso a la red:
-- `dns-lockdown start` Activa las restricciones de acceso a internet, solo los dominios/IPs en la lista blanca serán accesibles. Estos cambios tienen efecto inmediato, no se mantienen entre reinicios, no se mantienen después de `oisetup`
-- `dns-lockdown allow <domain|ip>...` Añade nuevos elementos a la lista blanca. Estos cambios tienen efecto inmediato, se mantienen entre reinicios, no se mantienen después de `oisetup`
-- `dns-lockdown block <domain|ip>...` Elimina elementos de la lista blanca. Estos cambios tienen efecto inmediato, se mantienen entre reinicios, no se mantienen después de `oisetup`
-- `dns-lockdown stop` Desactiva las restricciones de acceso a internet. Estos cambios tienen efecto inmediato, no se mantienen entre reinicios, no se mantienen después de `oisetup`
+ - `dns-lockdown start` Activa las restricciones de acceso a internet, solo los dominios/IPs en la lista blanca serán accesibles. Estos cambios tienen efecto inmediato, no se mantienen entre reinicios, no se mantienen después de `oisetup`
+ - `dns-lockdown allow <domain|ip>...` Añade nuevos elementos a la lista blanca. Estos cambios tienen efecto inmediato, se mantienen entre reinicios, no se mantienen después de `oisetup`
+ - `dns-lockdown block <domain|ip>...` Elimina elementos de la lista blanca. Estos cambios tienen efecto inmediato, se mantienen entre reinicios, no se mantienen después de `oisetup`
+ - `dns-lockdown stop` Desactiva las restricciones de acceso a internet. Estos cambios tienen efecto inmediato, no se mantienen entre reinicios, no se mantienen después de `oisetup`
 
 Gestión de /etc/hosts:
-- `static_hosts -r <domain|ip>` Obtiene entradas de /etc/hosts. Las IPs se añaden automáticamente a la lista blanca. Estos cambios tienen efecto inmediato, se mantienen entre reinicios, no se mantienen después de `oisetup`
-- `static_hosts -u <domain> <ip>` Añade entradas a /etc/hosts. Las IPs se añaden automáticamente a la lista blanca. Estos cambios tienen efecto inmediato, se mantienen entre reinicios, no se mantienen después de `oisetup`
-- `static_hosts -d <domain|ip>...` Elimina entradas de /etc/hosts. Si las IPs estaban en la lista blanca NO se eliminan, puedes eliminarlas con el comando `dns-lockdown block <ip>...`. Estos cambios tienen efecto inmediato, se mantienen entre reinicios, no se mantienen después de `oisetup`
-- `static_hosts -c` Elimina todas las entradas de oisetup de /etc/hosts. Si las IPs estaban en la lista blanca NO se eliminan, puedes eliminarla con el comando `dns-lockdown block <ip>...`. Estos cambios tienen efecto inmediato, se mantienen entre reinicios, no se mantienen después de `oisetup`
+ - `static_hosts -r <domain|ip>` Obtiene entradas de /etc/hosts. Las IPs se añaden automáticamente a la lista blanca. Estos cambios tienen efecto inmediato, se mantienen entre reinicios, no se mantienen después de `oisetup`
+ - `static_hosts -u <domain> <ip>` Añade entradas a /etc/hosts. Las IPs se añaden automáticamente a la lista blanca. Estos cambios tienen efecto inmediato, se mantienen entre reinicios, no se mantienen después de `oisetup`
+ - `static_hosts -d <domain|ip>...` Elimina entradas de /etc/hosts. Si las IPs estaban en la lista blanca NO se eliminan, puedes eliminarlas con el comando `dns-lockdown block <ip>...`. Estos cambios tienen efecto inmediato, se mantienen entre reinicios, no se mantienen después de `oisetup`
+ - `static_hosts -c` Elimina todas las entradas de oisetup de /etc/hosts. Si las IPs estaban en la lista blanca NO se eliminan, puedes eliminarla con el comando `dns-lockdown block <ip>...`. Estos cambios tienen efecto inmediato, se mantienen entre reinicios, no se mantienen después de `oisetup`
 
 Gestión de la sesión:
-- `clean_persistent_dir` Vacía el directorio persistente
-- `get_cms_user` Obtiene el usuario identificado en CMS
+ - `clean_persistent_dir` Vacía el directorio persistente
+ - `get_cms_user` Obtiene el usuario identificado en CMS
 
 Gestión del la máquina virtual:
-- `vm_version_print` Muestra la versión de la máquina virtual
-- `oisetup [profile]` Configura el sistema con las restricciones del perfil. Estos cambios tienen efecto inmediato, y se mantienen entre reinicios
-- `oisetup_config [-p <profile>] [-f] [-r <property]... [-u <property> <value>]... [-d <property]...` Muestra o actualiza la configuración de `oisetup`. Con el parámetro `-f` los cambios tienen efecto inmediato, se mantienen entre reinicios, se mantienen después de `oisetup`
+ - `vm_version_print` Muestra la versión de la máquina virtual
+ - `oisetup [profile]` Configura el sistema con las restricciones del perfil. Estos cambios tienen efecto inmediato, y se mantienen entre reinicios
+ - `oisetup_config [-p <profile>] [-f] [-r <property]... [-u <property> <value>]... [-d <property]...` Muestra o actualiza la configuración de `oisetup`. Con el parámetro `-f` los cambios tienen efecto inmediato, se mantienen entre reinicios, se mantienen después de `oisetup`
 
 Utilidades de usuario:
-- `run <code> [inputfile]` Compila y ejecuta el código, y opcionalmente le pasa un archivo de entrada a la ejecución
+ - `run <code> [inputfile]` Compila y ejecuta el código, y opcionalmente le pasa un archivo de entrada a la ejecución
+
+# Comentarios
+
+ - Si se reinicia la máquina virtual y se está usando el proctor, se le asignará una nueva IP en el túnel a la máquina virtual
+
+ - Es posible elevar privilegios a root desde el entorno de concursante ejecutando `su oi` y a continuación `sudo -s`
 
 
 -----
@@ -114,25 +120,31 @@ Utilidades de usuario:
 # Commands
 
 Network access management:
-- `dns-lockdown start` Activates internet access restrictions; only domains/IPs on the allowlist will be accessible. These changes take effect immediately, do not persist across reboots, and are not kept after `oisetup`
-- `dns-lockdown allow <domain|ip>...` Adds new items to the allowlist. These changes take effect immediately, persist across reboots, and are not kept after `oisetup`
-- `dns-lockdown block <domain|ip>...` Removes items from the allowlist. These changes take effect immediately, persist across reboots, and are not kept after `oisetup`
-- `dns-lockdown stop` Deactivates the internet access restrictions. These changes take effect immediately, do not persist across reboots, and are not kept after `oisetup`
+ - `dns-lockdown start` Activates internet access restrictions; only domains/IPs on the allowlist will be accessible. These changes take effect immediately, do not persist across reboots, and are not kept after `oisetup`
+ - `dns-lockdown allow <domain|ip>...` Adds new items to the allowlist. These changes take effect immediately, persist across reboots, and are not kept after `oisetup`
+ - `dns-lockdown block <domain|ip>...` Removes items from the allowlist. These changes take effect immediately, persist across reboots, and are not kept after `oisetup`
+ - `dns-lockdown stop` Deactivates the internet access restrictions. These changes take effect immediately, do not persist across reboots, and are not kept after `oisetup`
 
 Managing /etc/hosts:
-- `static_hosts -r <domain|ip>` Retrieves entries from /etc/hosts. The IPs are automatically added to the allowlist. These changes take effect immediately, persist across reboots, and are not kept after `oisetup`
-- `static_hosts -u <domain> <ip>` Adds entries to /etc/hosts. The IPs are automatically added to the allowlist. These changes take effect immediately, persist across reboots, and are not kept after `oisetup`
-- `static_hosts -d <domain|ip>...` Removes entries from /etc/hosts. If the IPs were on the allowlist THEY ARE NOT REMOVED; you can remove them with the `dns-lockdown block <ip>...` command. These changes take effect immediately, persist across reboots, and are not kept after `oisetup`
-- `static_hosts -c` Removes all oisetup entries from /etc/hosts. If the IPs were on the allowlist THEY ARE NOT REMOVED; you can remove them with the `dns-lockdown block <ip>...` command. These changes take effect immediately, persist across reboots, and are not kept after `oisetup`
+ - `static_hosts -r <domain|ip>` Retrieves entries from /etc/hosts. The IPs are automatically added to the allowlist. These changes take effect immediately, persist across reboots, and are not kept after `oisetup`
+ - `static_hosts -u <domain> <ip>` Adds entries to /etc/hosts. The IPs are automatically added to the allowlist. These changes take effect immediately, persist across reboots, and are not kept after `oisetup`
+ - `static_hosts -d <domain|ip>...` Removes entries from /etc/hosts. If the IPs were on the allowlist THEY ARE NOT REMOVED; you can remove them with the `dns-lockdown block <ip>...` command. These changes take effect immediately, persist across reboots, and are not kept after `oisetup`
+ - `static_hosts -c` Removes all oisetup entries from /etc/hosts. If the IPs were on the allowlist THEY ARE NOT REMOVED; you can remove them with the `dns-lockdown block <ip>...` command. These changes take effect immediately, persist across reboots, and are not kept after `oisetup`
 
 Session management:
-- `clean_persistent_dir` Empties the persistent directory
-- `get_cms_user` Retrieves the user identified in the CMS
+ - `clean_persistent_dir` Empties the persistent directory
+ - `get_cms_user` Retrieves the user identified in the CMS
 
 Management of the virtual machine:
-- `vm_version_print` Displays the version of the virtual machine
-- `oisetup [profile]` Configures the system with the restrictions of the profile
-- `oisetup_config [-p <profile>] [-f] [-r <property>... [-u <property> <value>]... [-d <property>...` Shows or updates the `oisetup` configuration. With the parameter `-f` these changes take effect immediately, persist across reboots, and persist after `oisetup`
+ - `vm_version_print` Displays the version of the virtual machine
+ - `oisetup [profile]` Configures the system with the restrictions of the profile
+ - `oisetup_config [-p <profile>] [-f] [-r <property>... [-u <property> <value>]... [-d <property>...` Shows or updates the `oisetup` configuration. With the parameter `-f` these changes take effect immediately, persist across reboots, and persist after `oisetup`
 
 User utilities:
-- `run <code> [inputfile]` Compiles and runs the code, and optionally passes an input file to the execution
+ - `run <code> [inputfile]` Compiles and runs the code, and optionally passes an input file to the execution
+
+# Comments
+
+ - If the VM is rebooted and the proctor is in use, the VM will be given a new IP in the tunnel
+
+ - It is possible to elevate privileges from the contestant environment by running `su oi` followed by `sudo -s`

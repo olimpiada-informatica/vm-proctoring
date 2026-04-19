@@ -67,6 +67,8 @@ if test -n "$clear" -o ${#updates[@]} -gt 0 -o ${#deletes[@]} -gt 0; then
         delete_host "$hostname"
 
         echo "$ip $hostname # OISETUP" >> "$tmp_path"
+
+        dns-lockdown allow "$ip"
     done
     
     for ((i = 0; i < ${#deletes[@]}; i += 1)); do

@@ -2,14 +2,18 @@
 
 CONFIG_PATH="/opt/oiproctor/etc/config"
 
+curenv=$(declare -p -x)
 . "$CONFIG_PATH"
+eval "$curenv"
 
-for key in PROCTOR_SERVER_PATH PROCTOR_LOG_HTTPTUN_PATH PROCTOR_CONNECTIONS_PATH PROCTOR_USERS_PATH PROCTOR_LOG_USERS_PATH PROCTOR_TUNNEL_PASSWORD VM_PROCTOR_USER VM_PROCTOR_PRIVKEY_PATH VM_CONTESTANT_USER VM_PROCTOR_DIFF_IGNORE_PATH CONTEST_SHORTNAME; do
+for key in PROCTOR_SERVER_PATH PROCTOR_LOG_HTTPTUN_PATH PROCTOR_CONNECTIONS_PATH PROCTOR_USERS_PATH PROCTOR_LOG_USERS_PATH PROCTOR_TUNNEL_PASS_PATH VM_PROCTOR_USER VM_PROCTOR_PRIVKEY_PATH VM_CONTESTANT_USER VM_PROCTOR_DIFF_IGNORE_PATH; do
     test -z "${!key}" && echo "Missing $key in $CONFIG_PATH" >&2 && exit 1
 done
 
-proctor_password="$PROCTOR_TUNNEL_PASSWORD"
-test -f "$PROCTOR_TUNNEL_PASSWORD" && proctor_password="$(cat "$PROCTOR_TUNNEL_PASSWORD")"
+test "$1" = "start" && test -n "$2" && sleep "$2" && ! test -f "$PROCTOR_TUNNEL_PASS_PATH" # Trick to wait until the $PROCTOR_TUNNEL_PASS_PATH file has been created (useful in a docker)
+
+proctor_password="$PROCTOR_TUNNEL_PASS_PATH"
+test -f "$PROCTOR_TUNNEL_PASS_PATH" && proctor_password="$(cat "$PROCTOR_TUNNEL_PASS_PATH")"
 
 function error  {
     echo "$1" >&2
@@ -35,6 +39,11 @@ function get_daemon_pid {
     ps -Af | tr -s " " | sed -E 's/[+?*]//g' | grep -E ":[0-9][0-9] python3? $PROCTOR_SERVER_PATH $(echo "$proctor_password" | sed -E 's/[+?*]//g')" | cut -d" " -f2 | xargs
 }
 
+function is_tunnel_id {
+    value="$1"
+    echo "$value" | grep -qE '[0-9]+(\.[0-9]){1}' >/dev/null
+}
+
 function is_ip {
     value="$1"
     echo "$value" | grep -qE '[0-9]+(\.[0-9]){3}' >/dev/null
@@ -45,6 +54,8 @@ function resolve_query {
     verbose="$2"
     if is_ip "$host"; then
         resolve_to_hostname "$host" "$verbose"
+    elif is_tunnel_id "$host"; then
+        resolve_to_hostname "${TUNNEL_IP_PREFIX:-10.9.}$host" "$verbose"
     else
         resolve_to_ip "$host"
     fi
@@ -74,6 +85,8 @@ function resolve_destination {
     host="$1"
     if is_ip "$host"; then
         echo "$host"
+    elif is_tunnel_id "$host"; then
+        echo "${TUNNEL_IP_PREFIX:-10.9.}$host"
     else
         resolve_to_ip "$host"
     fi
@@ -113,7 +126,9 @@ function get_all_destinations_resolved {
 ignore_ips_path="$PROCTOR_CONNECTIONS_PATH"_"$(get_daemon_pid)".ignore_ips
 alias_ips_path="$PROCTOR_CONNECTIONS_PATH"_"$(get_daemon_pid)".alias_ips
 
-! test -f "$alias_ips_path" && ln -sf "$alias_ips_path" "$PROCTOR_ALIAS_PATH"
+if test -f "$alias_ips_path" && test "$(readlink "$PROCTOR_ALIAS_PATH")" != "$alias_ips_path"; then
+    ln -sf "$alias_ips_path" "$PROCTOR_ALIAS_PATH" 2>/dev/null || echo "Warning: Aliases file has not yet been created for this instance, run `sudo $(basename "$0")` once to create it."
+fi
 
 command="$1"
 destination="$2"
@@ -222,18 +237,6 @@ case "$command" in
         done
         ;;
 
-    disk)
-        run_in_vm "$destination" df / -h "|" tail -1
-        ;;
-
-    uptime|cpu)
-        run_in_vm "$destination" uptime
-        ;;
-
-    mem)
-        run_in_vm "$destination" free -ht "|" tail -1 "|" tr -s "' '" "|" cut "-d' '" -f4
-        ;;
-
     allow)
         shift 2
             run_in_vm "$destination" sudo dns-lockdown allow $@
@@ -252,6 +255,18 @@ case "$command" in
     delhost)
         shift 2
         run_in_vm "$destination" sudo static_hosts -d "$1" "$2"
+        ;;
+
+    disk)
+        run_in_vm "$destination" df / -h "|" tail -1
+        ;;
+
+    uptime|cpu)
+        run_in_vm "$destination" uptime
+        ;;
+
+    mem)
+        run_in_vm "$destination" free -ht "|" tail -1 "|" tr -s "' '" "|" cut "-d' '" -f4
         ;;
 
     lock)
@@ -328,23 +343,23 @@ Available commands:
     get:     Download a file or directory from the vms
 
     Commands run inside the vms:
+    allow:   Add an IP or domain to the allowlist in the vm, kept through reboots, lost through oisetup
+    block:   Remove an IP or domain from the allowlist in the vm, kept through reboots, lost through oisetup
+    addhost: Adds entry in hosts file and adds it to allowlist in the vm, kept through reboots, lost through oisetup
+    delhost: Deletes entry from the hosts file in the vm, kept through reboots, lost through oisetup
     disk:    Reports vm's available disk space
     uptime:  Reports vm's uptime and cpu usage
     mem:     Reports vm's available memory (ram + swap)
-    allow:   Add an IP or domain to the allowlist in the vm
-    block:   Remove an IP or domain from the allowlist in the vm
     lock:    Lock the user's session in the vm
     unlock:  Unlock the user's session in the vm
-    addhost: Adds entry in hosts file and adds it to allowlist in the vm
-    delhost: Deletes entry from the hosts file in the vm
-    tell:    Opens in the vm a window with a message
-    alert:   Opens in the vm a window with a warning message
-    yesno:   Opens in the vm a window with a message and "yes" "no" buttons
-    ask:     Opens in the vm a window with an open question
-    clean:   Closes in the vm all open $(basename "$0") windows
-    reset:   Resets in the vm the contestant's user
-    diff:    Reports files added in the vm's user profile
-    cmd:     Runs in the vm the provided custom command
+    tell:    Opens a window with a message in the vm
+    alert:   Opens a window with a warning message in the vm
+    yesno:   Opens a window with a message and "yes" "no" buttons in the vm
+    ask:     Opens a window with an open question in the vm
+    clean:   Closes all open $(basename "$0") windows in the vm
+    reset:   Resets the contestant's user in the vm
+    diff:    Reports files added in the user profile in the vm
+    cmd:     Runs the provided command in the vm
     version: Prints the oiproctor version in the vm
 
     Miscellaneous:

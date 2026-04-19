@@ -13,6 +13,9 @@ import requests
 from common import get_mac, BROADCAST, dequeue, parse_packets, serialize_packets
 from pytun import TunTapDevice, IFF_TAP
 
+from requests.packages.urllib3.exceptions import InsecureRequestWarning
+requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
+
 server_queue = Queue()
 
 
@@ -29,7 +32,8 @@ def read_data():
 def send_data():
     try:
         session = requests.Session()
-        session.verify = False
+        if len(sys.argv) > 3 and sys.argv[3] == 'ignorecert':
+            session.verify = False
         while True:
             wdata = dequeue(server_queue)
             wans = session.post(server + '/send',
@@ -46,8 +50,8 @@ def send_data():
 
 def main():
     global tap, my_mac, my_ip, server
-    if len(sys.argv) != 3:
-        print("Usage: %s url password" % sys.argv[0])
+    if len(sys.argv) < 3 or len(sys.argv) > 4 or (len(sys.argv) == 4 and sys.argv[3] != 'ignorecert'):
+        print("Usage: %s <url> <password> [ignorecert]" % sys.argv[0])
         sys.exit(1)
 
     server = sys.argv[1]
@@ -56,7 +60,8 @@ def main():
         server = server[:-1]
 
     session = requests.Session()
-    session.verify = False
+    if len(sys.argv) > 3 and sys.argv[3] == 'ignorecert':
+        session.verify = False
     if os.path.exists("/tmp/tap0cache"):
         with open("/tmp/tap0cache", "rb") as f:
             data = f.read(10)

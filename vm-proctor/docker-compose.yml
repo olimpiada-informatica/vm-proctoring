@@ -1,10 +1,22 @@
 version: '2'
 services:
   oiproctor:
-    build: oiproctor/
+    build:
+      context: ./oiproctor
+      args:
+        NAME_SERVER: ${NAME_SERVER:-8.8.8.8}
     restart: on-failure
     privileged: true
-    volumes:
-      - './oiproctor:/opt/oiproctor:rw'
     ports:
-      - "443"
+      #- 80
+      - 443
+    volumes:
+      - ./oiproctor/log:/opt/oiproctor/log:rw
+    environment:
+      - TUNNEL_PASS: ${TUNNEL_PASS:-}
+      - VM_SSH_PASS: ${VM_SSH_PASS:-}
+      - OIPROCTOR_PASS: ${OIPROCTOR_PASS:-}
+      - USERS_MONITOR_TITLE: ${USERS_MONITOR_TITLE:-}
+      - VM_DIALOG_TITLE: ${VM_DIALOG_TITLE:-}
+      - CMS_CONTEST_SHORTNAME: ${CMS_CONTEST_SHORTNAME:-}
+      - CMS_USERS: ${CMS_USERS:-}

@@ -1,7 +1,7 @@
 #!/bin/node
 
 const CONFIG_PATH   	= '/opt/oiproctor/etc/config';
-const MANDATORY_PARAMS  = [ 'listen_port', 'listen_host', 'contest_shortname', 'proctor_connections_path', 'proctor_users_path', 'title', 'ping_interval', 'update_allowlist', 'users' ];
+const MANDATORY_PARAMS  = [ 'listen_port', 'listen_host', 'cms_contest_shortname', 'proctor_connections_path', 'proctor_users_path', 'title', 'ping_interval', 'update_allowlist', 'cms_users' ];
 
 const http  	= require('http');
 const fs    	= require('fs');
@@ -68,10 +68,10 @@ const requestListener = function (req, res) {
 
     	const update = (req, res) => {
 
-            	const user  	= params.get(config.contest_shortname + '_login');
+            	const user  	= params.get(config.cms_contest_shortname + '_login');
 
             	if (!user) return;
-            	if (!config.users.includes(user)) return; // Whitelist to prevent http requests poisoning the dns
+            	if (!config.cms_users.includes(user)) return; // Whitelist to prevent http requests poisoning the dns
 
             	const ip    	= req.socket.remoteAddress;
 
@@ -107,7 +107,7 @@ const requestListener = function (req, res) {
                     	}, ''),
             	);
 
-exec('killall -s SIGHUP dnsmasq');
+		exec('killall -s SIGHUP dnsmasq');
 
     	};
 
@@ -124,7 +124,7 @@ exec('killall -s SIGHUP dnsmasq');
             	output	+= '<style>.user { display: inline-block; float: left; padding: 1em; text-align: center; min-width: 5em; border: 1px dotted grey; font-family: monospace; } .first { clear: left; } .online { background-color: green; color: white; } .offline { background-color: red; } .idle { background-color: yellow; }</style>';
 
             	let old_team;
-            	[ ...new Set(config.users) ].sort().forEach(user => {
+            	[ ...new Set(config.cms_users) ].sort().forEach(user => {
 
                     	const team     	= user.substring(0, 2);
 
@@ -176,10 +176,15 @@ try {
             	if (line.startsWith('#') || !line) return;
             	const [ k, v ]  = line.split('=');
             	const param 	= k.toLowerCase().replace(/^users_monitor_/, '');
-            	config[param]   = v.startsWith('"') && v.endsWith('"') ? v.substring(1, v.length - 1) : v;
+            	config[param]   = process.env[k] ?? (v.startsWith('"') && v.endsWith('"') ? v.substring(1, v.length - 1) : v);
     	});
+    	for (let k of MANDATORY_PARAMS) {
+		if (config[k] !== undefined) continue;
+		const envParam = k.toUpperCase();
+		config[k] = process.env[envParam] ?? process.env['USERS_MONITOR_' + envParam];
+	}
     	[ 'listen_port', 'ping_interval' ].forEach(k => config[k] = parseInt(config[k]));
-    	[ 'users' ].forEach(k => config[k] = config[k].split(' ').map(v => v.trim()).filter(v => v));
+    	[ 'cms_users' ].forEach(k => config[k] = config[k].split(' ').map(v => v.trim()).filter(v => v));
     	for (let k of MANDATORY_PARAMS) if (!config[k]) return console.error(`Missing mandatory parameter ${k} in config file ${CONFIG_PATH}`);
 
     	http.createServer(requestListener).listen(config.listen_port, config.listen_host, () => {});

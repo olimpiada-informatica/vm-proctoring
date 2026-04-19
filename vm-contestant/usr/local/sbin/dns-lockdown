@@ -76,7 +76,8 @@ allow() {
 		echo "$item" | grep -E '^[0-9.]+$'
 	done | cat - "$CONFIG_PATH/ips.allowlist" | sort | uniq | sponge "$CONFIG_PATH/ips.allowlist"
 
-	restart
+	stop
+	start
 
 }
 
@@ -92,7 +93,8 @@ block() {
 		sed "s/^$(echo $item | idn --no-tld)\$//" -i "$CONFIG_PATH/ips.allowlist"
 	done
 
-	restart
+	stop
+	start
 
 }
 
