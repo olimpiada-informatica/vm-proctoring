@@ -1,3 +1,5 @@
+(For English translation scroll further down)
+
 # Entorno
 
  - Estos scripts están configurados para ejecutarse en Xubuntu 24.04

@@ -24,10 +24,10 @@ VM_SSH_PASS=
 # Password to access the proctoring server's shell
 OIPROCTOR_PASS=
 # Title of the users monitor page
-USERS_MONITOR_TITLE="WEOI"
+USERS_MONITOR_TITLE="Contest"
 # Title in VM dialog windows
-VM_DIALOG_TITLE="WEOI"
+VM_DIALOG_TITLE="Contest"
 # Contest's CMS shortname
-CMS_CONTEST_SHORTNAME="weoi"
+CMS_CONTEST_SHORTNAME="contest"
 # CMS users to monitor
-CMS_USERS="be1 be2 be3 be4 be5 be6 be7 be8 ch1 ch2 ch3 ch4 ch5 ch6 ch7 ch8 es1 es2 es3 es4 es5 es6 es7 es8 fr1 fr2 fr3 fr4 fr5 fr6 fr7 fr8 ir1 ir2 ir3 ir4 ir5 ir6 ir7 ir8 it1 it2 it3 it4 it5 it6 it7 it8 lu1 lu2 lu3 lu4 lu5 lu6 lu7 lu8 nl1 nl2 nl3 nl4 nl5 nl6 nl7 nl8 pt1 pt2 pt3 pt4 pt5 pt6 pt7 pt8 uk1 uk2 uk3 uk4 uk5 uk6 uk7 uk8"
+CMS_USERS="user01 user02 user03 user04 user05 user06 user07 user08 user09 user10"

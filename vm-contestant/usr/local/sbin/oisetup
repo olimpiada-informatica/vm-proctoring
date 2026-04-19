@@ -134,12 +134,14 @@ function disable_guest_session {
 function enable_screenlock {
 
 	rm -f /etc/X11/Xsession.d/98noscreenlock
+	xfce4-power-manager --daemon >/dev/null 2>&1
 
 }
 
 function disable_screenlock {
 
-	echo 'bash -c "sleep 10; xset s off; xset -dpms" &' > /etc/X11/Xsession.d/98noscreenlock
+	echo 'bash -c "sleep 10; xset s off; xset -dpms; xfce4-power-manager -q" &' > /etc/X11/Xsession.d/98noscreenlock
+	xfce4-power-manager -q >/dev/null 2>&1
 
 }
 
@@ -173,12 +175,15 @@ EOF
 
 	echo "touch \$HOME/.skip-guest-warning-dialog # oi-vm" >> /etc/guest-session/prefs.sh
 	if test "$locale" = ca_ES -o "$locale" = ca; then
-		echo '{ sleep 4; zenity --warning --no-wrap --title="Usuari temporal" --text="Totes les dades creades seran eliminades\nen sortir, incloent les configuracions de les aplicacions.\n\nPer garantir que en cas de fallida del sistema\nno perdis els programes, desa els teus codis\nal directori '"$dirname"'."; } & # oi-vm' >> /etc/guest-session/auto.sh
+	! test -f /etc/guest-session/auto.sh && echo '#!/bin/bash' > /etc/guest-session/auto.sh
+	test -f /etc/guest-session/auto.sh && grep -v oi-vm /etc/guest-session/auto.sh > /etc/guest-session/auto.sh.tmp || echo "" > /etc/guest-session/auto.sh.tmp
+		echo '{ sleep 4; zenity --warning --no-wrap --title="Usuari temporal" --text="Totes les dades creades seran eliminades\nen sortir, incloent les configuracions de les aplicacions.\n\nPer garantir que en cas de fallida del sistema\nno perdis els programes, desa els teus codis\nal directori '"$dirname"'."; } & # oi-vm'
 	elif test "$locale" = es_ES -o "$locale" = es; then
-		echo '{ sleep 4; zenity --warning --no-wrap --title="Usuario temporal" --text="Al salir no se van a guardar los datos creados,\nincluidas las configuraciones de las aplicaciones.\n\nPara garantizar que en caso de fallo del sistema\nno pierdas los programas, guarda tus programas\nen el directorio '"$dirname"'."; } & # oi-vm' >> /etc/guest-session/auto.sh
+		echo '{ sleep 4; zenity --warning --no-wrap --title="Usuario temporal" --text="Al salir no se van a guardar los datos creados,\nincluidas las configuraciones de las aplicaciones.\n\nPara garantizar que en caso de fallo del sistema\nno pierdas los programas, guarda tus programas\nen el directorio '"$dirname"'."; } & # oi-vm'
 	else
-		echo '{ sleep 4; zenity --warning --no-wrap --title="Temporary user" --text="All your data will be lost when leaving the session,\nincluding the configuration of the applications.\n\nTo ensure your code is not lost in case of system failure,\nsave all your code in the '"$dirname"' directory." } # oi-vm' >> /etc/guest-session/auto.sh
-	fi
+		echo '{ sleep 4; zenity --warning --no-wrap --title="Temporary user" --text="All your data will be lost when leaving the session,\nincluding the configuration of the applications.\n\nTo ensure your code is not lost in case of system failure,\nsave all your code in the '"$dirname"' directory."; } # oi-vm'
+	fi >> /etc/guest-session/auto.sh
+	chmod a+x /etc/guest-session/auto.sh
 
 }
 

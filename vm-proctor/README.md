@@ -1,3 +1,5 @@
+(For English translation scroll further down)
+
 # Requisitos
 
  - docker compose

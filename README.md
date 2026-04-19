@@ -1,3 +1,5 @@
+(For English translation scroll further down)
+
 # Descripción
 
 Estos scripts permiten crear una máquina virtual de concursante en la que los organizadores del concurso pueden:
