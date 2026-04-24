@@ -331,7 +331,7 @@ function firefox_settings {
 		bookmark_name="${bookmarks[i+1]}"
 		test "${bookmark_url:0:4}" != "http" && bookmark_url="https://$bookmark_url"
 		test -n "$bookmarks_policy" && bookmarks_policy="$bookmarks_policy, "
-		bookmarks_policy="$bookmarks_policy{ \"url\": \"$bookmark_url\", \"name\": \"$bookmark_name\" }"
+		bookmarks_policy="$bookmarks_policy{ \"URL\": \"$bookmark_url\", \"Title\": \"$bookmark_name\" }"
 		test -n "$bookmarks_descr" && bookmarks_descr="$bookmarks_descr, "
 		bookmarks_descr="$bookmarks_descr'$bookmark_name' => $bookmark_url"
 		dns_lockdown_implicit_exceptions="$dns_lockdown_implicit_exceptions $(get_domain "$bookmark_url")"
@@ -357,6 +357,11 @@ function firefox_settings {
     "AppAutoUpdate": false,
     "DisableAppUpdate": true,
     "OverrideFirstRunPage": "",
+    "OverridePostUpdatePage": "",
+    "DisableFirefoxStudies": true,
+    "DisableTelemetry": true,
+    "DisableProfileRefresh": true,
+    "NewTabPage": false,
     "Homepage": {
       "URL": "'"$homepage"'",
       "Locked": true,
@@ -368,9 +373,15 @@ function firefox_settings {
       "Locked": true
     },
     "DisplayBookmarksToolbar": "always",
-    "ManagedBookmarks": [
+    "Bookmarks": [
       '"$bookmarks_policy"'
-    ]
+    ],
+    "DisableProfileImport": true,
+    "NoDefaultBookmarks": true,
+    "Preferences": {
+      "datareporting.policy.dataSubmissionPolicyBypassNotification": true,
+      "extensions.getAddons.showPane": false
+    }
   }
 }' >  /etc/firefox/policies/policies.json
 
