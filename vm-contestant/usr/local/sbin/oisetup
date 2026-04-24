@@ -573,31 +573,31 @@ echo "Contest: $CONTEST_NAME"
 
 test -n "$NATIVE_PROCTOR_SHADOW" && update_system_password "$NATIVE_PROCTOR_USER" "$NATIVE_PROCTOR_SHADOW"
 
-is_enabled "$APT_PACKAGES" && install_apt_packages "$APT_PACKAGES" || remove_apt_packages ALL
-is_enabled "$PIP_PACKAGES" && install_pip_packages "$PIP_PACKAGES" || remove_pip_packages ALL
+if is_enabled "$APT_PACKAGES"; then install_apt_packages "$APT_PACKAGES"; else remove_apt_packages ALL; fi
+if is_enabled "$PIP_PACKAGES"; then install_pip_packages "$PIP_PACKAGES"; else remove_pip_packages ALL; fi
 
 install_locales "$AVAILABLE_LOCALES"
 default_locale "$DEFAULT_LOCALE"
 
-is_enabled "$GUEST_SESSION" && enable_guest_session || disable_guest_session
+if is_enabled "$GUEST_SESSION"; then enable_guest_session; else disable_guest_session; fi
 
-is_enabled "$DISABLE_SCREENLOCK" && disable_screenlock || enable_screenlock
+if is_enabled "$DISABLE_SCREENLOCK"; then disable_screenlock; else enable_screenlock; fi
 
-is_enabled "$PERSISTENT_STORAGE" && enable_persistent_storage "$PERSISTENT_EXTERNAL" "$PERSISTENT_DIRNAME" || disable_persistent_storage
+if is_enabled "$PERSISTENT_STORAGE"; then enable_persistent_storage "$PERSISTENT_EXTERNAL" "$PERSISTENT_DIRNAME"; else disable_persistent_storage; fi
 
 firefox_settings "$CONTEST_URL" "$CONTEST_NAME" "${BROWSER_EXTENSIONS[*]}" "${BOOKMARKS[@]}"
 
-is_enabled "$LOGO_PATH" && set_logo "$LOGO_PATH" || remove_logo
+if is_enabled "$LOGO_PATH"; then set_logo "$LOGO_PATH"; else remove_logo; fi
 
 set_lock_message "$CONTEST_NAME" "$LOCK_MESSAGE_BODY" "$LOCK_MESSAGE_TITLE" "$LOCK_MESSAGE_WIDTH" "$LOCK_MESSAGE_TYPE" "$LOCK_MESSAGE_OPTIONS"
 
-is_enabled "$PROCTOR_TUNNEL_URL" && enable_httptun "$PROCTOR_TUNNEL_URL" "$PROCTOR_TUNNEL_PASSWORD" "$PROCTOR_USER" "$PROCTOR_MONITOR" "$PROCTOR_DIFF_IGNORE" || disable_httptun
+if is_enabled "$PROCTOR_TUNNEL_URL"; then enable_httptun "$PROCTOR_TUNNEL_URL" "$PROCTOR_TUNNEL_PASSWORD" "$PROCTOR_USER" "$PROCTOR_MONITOR" "$PROCTOR_DIFF_IGNORE"; else disable_httptun; fi
 
-is_enabled "$STATIC_HOSTS" && set_static_hosts $STATIC_HOSTS || static_hosts_cleanup
+if is_enabled "$STATIC_HOSTS"; then set_static_hosts $STATIC_HOSTS; else static_hosts_cleanup; fi
 
-is_enabled "$DNS_LOCKDOWN" && enable_dns_lockdown "$DNS_LOCKDOWN_INTERFACE" "$DNS_LOCKDOWN_ALLOWLIST $DNS_LOCKDOWN_WHITELIST" || disable_dns_lockdown
+if is_enabled "$DNS_LOCKDOWN"; then enable_dns_lockdown "$DNS_LOCKDOWN_INTERFACE" "$DNS_LOCKDOWN_ALLOWLIST $DNS_LOCKDOWN_WHITELIST"; else disable_dns_lockdown; fi
 
-is_enabled "$CONTEST_CMS_ID" && enable_cms_tracking "$CONTEST_CMS_ID" || disable_cms_tracking
+if is_enabled "$CONTEST_CMS_ID"; then enable_cms_tracking "$CONTEST_CMS_ID"; else disable_cms_tracking; fi
 
 lock_cleanup
 
