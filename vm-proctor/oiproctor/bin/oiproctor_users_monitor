@@ -14,181 +14,184 @@ var alerts      = [];
 
 function date_formatted(date) {
 
-    	const now   	= date || new Date();
+	const now   	= date || new Date();
 
-    	const year  	= now.getFullYear();
-    	const month 	= String(now.getMonth() + 1).padStart(2, '0');
-    	const day   	= String(now.getDate() 	).padStart(2, '0');
-    	const hours 	= String(now.getHours()	).padStart(2, '0');
-    	const minutes   = String(now.getMinutes()  ).padStart(2, '0');
-    	const seconds   = String(now.getSeconds()  ).padStart(2, '0');
+	const year  	= now.getFullYear();
+	const month 	= String(now.getMonth() + 1).padStart(2, '0');
+	const day   	= String(now.getDate() 	).padStart(2, '0');
+	const hours 	= String(now.getHours()	).padStart(2, '0');
+	const minutes   = String(now.getMinutes()  ).padStart(2, '0');
+	const seconds   = String(now.getSeconds()  ).padStart(2, '0');
 
-    	return year + '-' + month + '-' + day + ' ' + hours + ':' + minutes + ':' + seconds;
+	return year + '-' + month + '-' + day + ' ' + hours + ':' + minutes + ':' + seconds;
 
 }
 
 const requestListener = function (req, res) {
 
-    	const params = new URLSearchParams(req.url.split('?').slice(1).join('?'));
+	const params = new URLSearchParams(req.url.split('?').slice(1).join('?'));
 
-        const monitor = (req, res) => {
+	const monitor = (req, res) => {
 
-                const since       = parseInt(params.get('since'));
+		const since       = parseInt(params.get('since'));
 
-                let output = "";
-                output  += `<!DOCTYPE html><html><head><title>${config.title}</title><meta http-equiv="refresh" content="${config.ping_interval}"></head><body>`;
+		let output = "";
+		output  += `<!DOCTYPE html><html><head><title>${config.title}</title><meta http-equiv="refresh" content="${config.ping_interval}"></head><body>`;
 
-                output  += '<style>.timestamp, .user, .message { display: inline-block; margin: 0 1em; }</style>';
+		output  += '<style>.timestamp, .user, .message { display: inline-block; margin: 0 1em; }</style>';
 
-                alerts.forEach(alert => {
+		alerts.forEach(alert => {
 			if (since && since < alert.timestamp) return;
 			output += `<div><div class="timestamp">${alert.timestamp}</div><div class="user">${alert.user}</div><div class="message">${alert.message}</div></div>`;
 		});
 
-                output  += '</body></html>';
-                res.write(output);
+		output  += '</body></html>';
+		res.write(output);
 
-        };
+	};
 
-        const notify = (req, res) => {
+	const notify = (req, res) => {
 
-                const msg       = params.get('msg');
+		const msg       = params.get('msg');
 
-                if (!msg) return res.write('{ "error": "Missing msg" }');
+		if (!msg) return res.write('{ "error": "Missing msg" }');
 
-                const ip        = req.headers['x-forward-for'] || req.socket.remoteAddress;
+		const ip        = req.headers['x-forward-for'] || req.socket.remoteAddress;
 
-                if (!ip.match(new RegExp(config.update_allowlist)) && !ip.match(new RegExp(config.update_whitelist))) return console.error(`Invalid source IP ${ip} trying to notiy ${msg}`);
+		if (!ip.match(new RegExp(config.update_allowlist)) && !ip.match(new RegExp(config.update_whitelist))) return console.error(`Invalid source IP ${ip} trying to notiy ${msg}`);
 
-                alerts.push({ timestamp: Date.now(), user: ip, message: msg });
+		alerts.push({ timestamp: Date.now(), user: ip, message: msg });
 
-                res.write('{ "success": true }');
+		res.write('{ "success": true }');
 
-        };
+	};
 
-    	const update = (req, res) => {
+	const update = (req, res) => {
 
-            	const user  	= params.get(config.cms_contest_shortname + '_login');
+		const user  	= params.get(config.cms_contest_shortname + '_login');
 
-            	if (!user) return;
-            	if (!config.cms_users.includes(user)) return; // Whitelist to prevent http requests poisoning the dns
+		if (!user) return;
+		if (!config.cms_users.includes(user)) return; // Whitelist to prevent http requests poisoning the dns
 
-            	const ip    	= req.socket.remoteAddress;
+		const ip    	= req.headers['x-forward-for'] || req.socket.remoteAddress;
 
-            	if (!ip.match(new RegExp(config.update_allowlist)) && !ip.match(new RegExp(config.update_whitelist))) return console.error(`Invalid source IP ${ip} trying to register ${user}`);
+		if (!ip.match(new RegExp(config.update_allowlist)) && !ip.match(new RegExp(config.update_whitelist))) return console.error(`Invalid source IP ${ip} trying to register ${user}`);
 
-            	const user_obj  = user => { return { user: user, ip: ip, timestamp: Date.now() } };
+		const user_obj  = { user: user, ip: ip, timestamp: Date.now(), };
 
-            	if (users_map[ip]?.user === user) {
-                    	users_map[ip] = user_obj(user);
-                    	return;
-            	}
+		if (users_map[ip]?.user === user) {
+			users_map[ip] = user_obj;
+			return;
+		}
 
-            	const datetime  = date_formatted();
-            	const old_user  = users_map[ip]?.user;
-            	let old_ip  	= Object.keys(users_map).find(k => users_map[k].user == user);
+		const datetime  = date_formatted();
+		const old_user  = users_map[ip]?.user;
+		let old_ip  	= Object.keys(users_map).find(k => users_map[k].user == user);
 
-            	if (old_ip) delete users_map[old_ip];
+		if (old_ip) delete users_map[old_ip];
 
-            	const info  	= datetime + '\t' + ip + '\t' + user;
-            	let warning 	= '';
-            	if (old_user && old_user != user) warning += '\t' + '<' + old_user;
-            	if (old_ip) warning += (warning ? ',' : '\t') + '<' + old_ip;
-            	console[warning ? 'warn' : 'log'](info + warning);
+		const info  	= datetime + '\t' + ip + '\t' + user;
+		let warning 	= '';
+		if (old_user && old_user != user) warning += '\t' + '<' + old_user;
+		if (old_ip) warning += (warning ? ',' : '\t') + '<' + old_ip;
+		console[warning ? 'warn' : 'log'](info + warning);
 
-            	users_map[ip] = user_obj(user);
+		users_map[ip] = user_obj;
 
-            	fs.writeFileSync(
-                    	config.proctor_users_path,
-                    	Object.entries(users_map).reduce((acc, [ ip, v ]) => {
-                            	const user = v.user;
-                            	acc += ip + ' ' + user + '\n';
-                            	return acc;
-                    	}, ''),
-            	);
+		fs.writeFileSync(
+			config.proctor_users_path,
+			JSON.stringify(users_map),
+		);
 
 		exec('killall -s SIGHUP dnsmasq');
 
-    	};
+	};
 
-    	const status = (req, res) => {
+	const status = (req, res) => {
 
-            	const now = Date.now();
+		const now = Date.now();
 
-            	const nocache = params.get('nocache');
-            	if (!nocache && cache.status?.timestamp > now - config.ping_interval / 2 * 1000) return res.write(cache.status.output);
+		const nocache = params.get('nocache');
+		if (!nocache && cache.status?.timestamp > now - config.ping_interval / 2 * 1000) return res.write(cache.status.output);
 
-            	let output = "";
-            	output	+= `<!DOCTYPE html><html><head><title>${config.title}</title><meta http-equiv="refresh" content="${config.ping_interval}"></head><body>`;
+		let output = "";
+		output	+= `<!DOCTYPE html><html><head><title>${config.title}</title><meta http-equiv="refresh" content="${config.ping_interval}"></head><body>`;
 
-            	output	+= '<style>.user { display: inline-block; float: left; padding: 1em; text-align: center; min-width: 5em; border: 1px dotted grey; font-family: monospace; } .first { clear: left; } .online { background-color: green; color: white; } .offline { background-color: red; } .idle { background-color: yellow; }</style>';
+		output	+= '<style>.user { display: inline-block; float: left; padding: 1em; text-align: center; min-width: 5em; border: 1px dotted grey; font-family: monospace; } .first { clear: left; } .online { background-color: green; color: white; } .offline { background-color: red; } .idle { background-color: yellow; }</style>';
 
-            	let old_team;
-            	[ ...new Set(config.cms_users) ].sort().forEach(user => {
+		let old_team;
+		[ ...new Set(config.cms_users) ].sort().forEach(user => {
 
-                    	const team     	= user.substring(0, 2);
+			const team     	= user.substring(0, 2);
 
-                    	const user_obj 	= Object.values(users_map).find(v => v.user == user);
+			const user_obj 	= Object.values(users_map).find(v => v.user == user);
 
-                    	let user_ip    	= user_obj?.ip;
-                    	if (!user_ip) user_ip = "";
+			let user_ip    	= user_obj?.ip;
+			if (!user_ip) user_ip = "";
 
-                    	let classname  	= 'user';
-                    	if (user_obj?.timestamp < now - config.ping_interval * 2 * 1000) {
-                            	classname += ' idle';
-                    	} else if (user_obj) {
-                            	classname += ' online';
-                    	} else {
-                            	classname += ' offline';
-                    	}
+			let classname  	= 'user';
+			if (user_obj?.timestamp < now - config.ping_interval * 2 * 1000) {
+				classname += ' idle';
+			} else if (user_obj) {
+				classname += ' online';
+			} else {
+				classname += ' offline';
+			}
 
-                    	if (old_team != team) {
-                            	classname += ' first';
-                    	}
+			if (old_team != team) {
+				classname += ' first';
+			}
 
-                    	output        	+=`<div class="${classname}" title="${user_ip}">${user}</div>`;
+			output        	+=`<div class="${classname}" title="${user_ip}">${user}</div>`;
 
-                    	old_team       	= team;
+			old_team       	= team;
 
-            	});
+		});
 
-            	output	+= '</body></html>';
-            	res.write(output);
+		output	+= '</body></html>';
+		res.write(output);
 
-            	cache.status = { output: output, timestamp: now };
+		cache.status = { output: output, timestamp: now };
 
-    	}
+	}
 
-    	if (req.url.startsWith('/status')) status(req, res);
-    	else if (req.url.startsWith('/update')) update(req, res);
+	if (req.url.startsWith('/status')) status(req, res);
+	else if (req.url.startsWith('/update')) update(req, res);
 	else if (req.url.startsWith('/alerts')) monitor(req, res);
-        else if (req.url.startsWith('/notify')) notify(req, res);
+	else if (req.url.startsWith('/notify')) notify(req, res);
 
-    	res.end();
+    res.end();
 
 };
 
 try {
 
-    	const data = fs.readFileSync(CONFIG_PATH, 'utf8');
-    	data.split('\n').forEach(line => {
-            	line = line.trim();
-            	if (line.startsWith('#') || !line) return;
-            	const [ k, v ]  = line.split('=');
-            	const param 	= k.toLowerCase().replace(/^users_monitor_/, '');
-            	config[param]   = process.env[k] ?? (v.startsWith('"') && v.endsWith('"') ? v.substring(1, v.length - 1) : v);
-    	});
-    	for (let k of MANDATORY_PARAMS) {
+	const data = fs.readFileSync(CONFIG_PATH, 'utf8');
+	data.split('\n').forEach(line => {
+		line = line.trim();
+		if (line.startsWith('#') || !line) return;
+		const [ k, v ]  = line.split('=');
+		const param 	= k.toLowerCase().replace(/^users_monitor_/, '');
+		config[param]   = process.env[k] ?? (v.startsWith('"') && v.endsWith('"') ? v.substring(1, v.length - 1) : v);
+	});
+	for (let k of MANDATORY_PARAMS) {
 		if (config[k] !== undefined) continue;
 		const envParam = k.toUpperCase();
 		config[k] = process.env[envParam] ?? process.env['USERS_MONITOR_' + envParam];
 	}
-    	[ 'listen_port', 'ping_interval' ].forEach(k => config[k] = parseInt(config[k]));
-    	[ 'cms_users' ].forEach(k => config[k] = config[k].split(' ').map(v => v.trim()).filter(v => v));
-    	for (let k of MANDATORY_PARAMS) if (!config[k]) return console.error(`Missing mandatory parameter ${k} in config file ${CONFIG_PATH}`);
+	[ 'listen_port', 'ping_interval' ].forEach(k => config[k] = parseInt(config[k]));
+	[ 'cms_users' ].forEach(k => config[k] = config[k].split(' ').map(v => v.trim()).filter(v => v));
+	for (let k of MANDATORY_PARAMS) if (!config[k]) return console.error(`Missing mandatory parameter ${k} in config file ${CONFIG_PATH}`);
 
-    	http.createServer(requestListener).listen(config.listen_port, config.listen_host, () => {});
+	try {
+		const users_map_json = fs.readFileSync(config.proctor_users_path, 'utf8');
+		users_map = JSON.parse(users_map_json);
+	} catch (err) {
+		// File does not exist yet, start with empty map
+	}
+
+	http.createServer(requestListener).listen(config.listen_port, config.listen_host, () => {});
 
 } catch (err) {
-    	console.error(`Failed to read config file ${CONFIG_PATH}: ${err}`);
+    console.error(`Failed to read config file ${CONFIG_PATH}: ${err}`);
 }

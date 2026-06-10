@@ -34,6 +34,8 @@ Este comando debe ejecutarse cada vez que se modifique el archivo `.env`
 
 # Uso
 
+0. Elimina todos los archivos del directorio `run` si quieres partir de cero.
+
 1. Iniciar el servidor vigilante desde el directorio donde está el archivo `docker-compose.yml`, mediante este comando:
 
 `docker compose up -d oiproctor`
@@ -116,6 +118,8 @@ From the same directory, the following command must be executed:
 This command must be run every time the `.env` file is modified.
 
 # Usage
+
+0. Delete all files in the `run` directory if you want a fresh start.
 
 1. Start the proctor server from the directory where the docker-compose.yml file is located, using this command:
 

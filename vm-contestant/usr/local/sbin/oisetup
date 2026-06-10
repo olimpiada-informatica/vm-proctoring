@@ -14,6 +14,7 @@ NATIVE_PROCTOR_DIFF_IGNORE="\.profile \.skip-guest-warning-dialog \.xsessionrc \
 NATIVE_DNS_LOCKDOWN="edgecastcdn.net root-servers.net cdn.mozilla.net services.mozilla.com googleapis.com detectportal.firefox.com o.lencr.org spocs.getpockercom telemetry.mozilla.org ssl.gstatic.com ipv4only.arpa clients6.google.com dataops.mozgcp.net ocsp.digicert.com dscq.akamai.net l.google.com phicdn.net ocsp.pki.goog mozaws.net addons.mozilla.org cloudfront.net akamaiedge.net daisy.ubuntu.com in-addr.arpa ip6.arpa connectivity-check.ubuntu.com gstatic.com fonts.gstatic.com fonts.googleapis.com recaptcha.net www.recaptcha.net"
 NATIVE_DNS_LOCKDOWN_INTERFACE="en+"
 IGNORE_SYSTEM_CHECKS=
+PERSISTENT_STORAGE_PATH="/var/guest-data"
 
 # Global variables
 profile="$1"
@@ -154,10 +155,14 @@ function enable_persistent_storage {
 
 	clear_persistent_storage
 
-	test -n "$external" && echo "/dev/sdb1 /var/guest-data vfat defaults,auto,nofail,umask=0000 0 0 # oi-vm" >> /etc/fstab
+	test -n "$external" && echo "/dev/sdb1 $PERSISTENT_STORAGE_PATH vfat defaults,auto,nofail,umask=0000 0 0 # oi-vm" >> /etc/fstab
 
-	! test -d /var/guest-data && mkdir -m 0777 /var/guest-data
-	ln -sf /var/guest-data "/etc/guest-session/skel/$dirname"
+	! test -d "$PERSISTENT_STORAGE_PATH" && mkdir -m 0777 "$PERSISTENT_STORAGE_PATH"
+	setfacl -d -m o::rwX "$PERSISTENT_STORAGE_PATH" &&
+		setfacl -d -m g::rwX "$PERSISTENT_STORAGE_PATH" &&
+		setfacl -d -m u::rwX "$PERSISTENT_STORAGE_PATH" &&
+		setfacl -d -m mask::rwx "$PERSISTENT_STORAGE_PATH"
+	ln -sf "$PERSISTENT_STORAGE_PATH" "/etc/guest-session/skel/$dirname"
 	echo "cd \$HOME/$dirname" > /etc/guest-session/skel/.bashrc
 	echo "$dirname" > "$CONFIG_PATH"/persistent_storage_dirname.installed
 
@@ -171,7 +176,7 @@ function enable_persistent_storage {
 EOF
 
 	test -d /etc/guest-session/skel/Desktop || mkdir /etc/guest-session/skel/Desktop
-	ln -sf /var/guest-data /etc/guest-session/skel/Desktop/"$dirname"
+	ln -sf "$PERSISTENT_STORAGE_PATH" /etc/guest-session/skel/Desktop/"$dirname"
 
 	echo "touch \$HOME/.skip-guest-warning-dialog # oi-vm" >> /etc/guest-session/prefs.sh
 	if test "$locale" = ca_ES -o "$locale" = ca; then
@@ -204,8 +209,8 @@ function clear_persistent_storage {
 	mv -f /etc/guest-session/auto.sh.tmp /etc/guest-session/auto.sh
 
 	if ! is_enabled "$request_refresh"; then
-		umount /var/guest-data 2>/dev/null
-		test -d /var/guest-data && rm -rf /var/guest-data
+		umount "$PERSISTENT_STORAGE_PATH" 2>/dev/null
+		test -d "$PERSISTENT_STORAGE_PATH" && rm -rf "$PERSISTENT_STORAGE_PATH"
 	fi
 
 	if test -f "$CONFIG_PATH"/persistent_storage_dirname.installed; then
