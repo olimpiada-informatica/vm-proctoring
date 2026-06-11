@@ -17,157 +17,190 @@ IGNORE_SYSTEM_CHECKS=
 PERSISTENT_STORAGE_PATH="/var/guest-data"
 
 # Global variables
-profile="$1"
 profile_path=""
 default_profile_path="$PROFILES_PATH/$NATIVE_PROFILE"
 locale=""
 dns_lockdown_implicit_exceptions=""
 
+param_profile=""
+param_defrag=""
+param_refresh=""
+param_help=""
+param_error=""
+
 function error {
-	echo -e "$@" >&2
-	exit 1
+        echo -e "$@" >&2
+        exit 1
 }
 
 function is_enabled {
 
-	value="$1"
-	test -n "$value" && echo "$value" | grep -qviE '^(false|no|0)$'
+        value="$1"
+        test -n "$value" && echo "$value" | grep -qviE '^(false|no|0)$'
 
 }
 
 # System checks
 if ! is_enabled "$IGNORE_SYSTEM_CHECKS"; then
-	for path in "$CONFIG_PATH" /usr/share/plymouth/themes/xubuntu-logo/logo.png /var/lib/locales/supported.d/ /usr/share/i18n/SUPPORTED /etc/locale.gen; do
-		test -e "$path" || error "Path $path does not exist!"
-	done
-	for command in idn sponge xdotool osd_cat locale-gen update-locale "setxkbmap -help" xargs sort uniq tr systemctl basename sed grep apt-get pip3 "ping -V" ipset "iptables -V" tcpdump pgrep sudo "killall -V" perl python3 truncate; do
-		test "$(echo "$command" | wc -w)" -eq 1 && command="$command --help"
-		$command >/dev/null 2>&1 || error "Program $(echo $command | cut -d' ' -f1) is required!"
-	done
+        for path in "$CONFIG_PATH" /usr/share/plymouth/themes/xubuntu-logo/logo.png /var/lib/locales/supported.d/ /usr/share/i18n/SUPPORTED /etc/locale.gen; do
+                test -e "$path" || error "Path $path does not exist!"
+        done
+        for command in idn sponge xdotool osd_cat locale-gen update-locale "setxkbmap -help" xargs sort uniq tr systemctl basename sed grep apt-get pip3 "ping -V" ipset "iptables -V" tcpdump pgrep sudo "killall -V" perl python3 truncate; do
+                test "$(echo "$command" | wc -w)" -eq 1 && command="$command --help"
+                $command >/dev/null 2>&1 || error "Program $(echo $command | cut -d' ' -f1) is required!"
+        done
 fi
 
-# Commandline checks
+# Context checks
 test "$EUID" -ne 0 && echo "This script must be run as root!" >&2 && exit 1
-test $# -gt 1 && echo -e "Invalid arguments!\nRun $(basename "$0") --help to find out more." >&2 && exit 1
-test $# -eq 0 && request_refresh=true
-test "$1" = "--help" -o "$1" = "-h" && echo -e "Usage: $(basename "$0") [profile]\nAvailable profiles: $(for file in "$PROFILES_PATH"/*; do test -L "$file" || basename "$(echo "$file")"; done | sort | xargs)\nProfiles are located in $PROFILES_PATH" && exit 0
 
-test -z "$profile" && profile="$NATIVE_PROFILE"
-profile_path="$PROFILES_PATH/$profile"
-! test -f "$profile_path" && echo "No $PROFILES_PATH/$profile file found!" >&2 && exit 1
+# Commandline checks
+for param in $@; do
+        case $param in
+                -h | --help)
+                        param_help="true"
+                        ;;
+                -r | --refresh)
+                        param_refresh="true"
+                        ;;
+                -d | --defragment)
+                        param_defrag="true"
+                        ;;
+                -*)
+                        param_error="true"
+                        ;;
+                *)
+                        test -n "$param_profile" && echo "Only one profile can be enabled" >&2 && exit 1
+                        param_profile="$1"
+                        ;;
+        esac
+done
+
+if is_enabled "$param_help" || is_enabled "$param_error"; then
+        is_enabled "$param_error" && echo "Invalid arguments!"
+        echo -e "Usage: $(basename "$0") [profile] [options]...\nAvailable profiles:\n\t$(for file in "$PROFILES_PATH"/*; do test -L "$file" || basename "$(echo "$file")"; done | sort | xargs)\nProfiles are located in:\n\t$PROFILES_PATH\nOptions:\n\t-d --defragment\tDefragment the disk (so it can later be compacted and compressed for distribution)\n\t-r --refresh\tOnly refresh the profile, keep persistent data\n\t-h --help\tDisplay this help message"
+        exit ${param_error:+1}
+fi
+
+if test -z "$param_profile"; then
+        param_refresh="true"
+        param_profile="$NATIVE_PROFILE"
+fi
+profile_path="$PROFILES_PATH/$param_profile"
+! test -f "$profile_path" && echo "No $PROFILES_PATH/$param_profile file found!" >&2 && exit 1
 
 function get_enabled {
 
-	value="$1"
-	is_enabled "$value" && echo true
+        value="$1"
+        is_enabled "$value" && echo true
 
 }
 
 function get_items_in_first_list_only {
 
-	list1=" $1 "
-	list2=" $2 "
-	for item in $list1; do
-		echo " $list2 " | grep -qvE "\s$item\s" && echo "$item"
-	done
+        list1=" $1 "
+        list2=" $2 "
+        for item in $list1; do
+                echo " $list2 " | grep -qvE "\s$item\s" && echo "$item"
+        done
 
 }
 
 function get_domain {
 
-	for url in $@;  do
-		echo "$url" | sed -nE 's/^([a-z]+:\/\/)?([^ /?#]+)(:[0-9]+)?([\/?#].*)?$/\2/p'
-	done
+        for url in $@;  do
+                echo "$url" | sed -nE 's/^([a-z]+:\/\/)?([^ /?#]+)(:[0-9]+)?([\/?#].*)?$/\2/p'
+        done
 
 }
 
 function install_locales {
-	
-	locales="$@"
-	locales_gen=""
-	language_packs=""
 
-	last_lang=""
-	rm -f /var/lib/locales/supported.d/*
-	for locale in $(echo $locales "$NATIVE_LOCALE" | xargs | tr ' ' '\n' | sort | uniq); do
-		lang="${locale:0:2}"
-		full_locale="$locale.UTF-8 UTF8"
-		test "$last_lang" != "$lang" && truncate -s0 /var/lib/locales/supported.d/"$lang"
-		echo "$locale.UTF-8 UTF-8" >> /var/lib/locales/supported.d/"$lang"
-		language_packs="$language_packs language-pack-gnome-${lang}"
-		echo "$locale.UTF-8 UTF-8"
-		last_lang="$lang"
-	done > /etc/locale.gen
+        locales="$@"
+        locales_gen=""
+        language_packs=""
 
-	apt-get install -y $(echo "$language_packs" | xargs | tr ' ' '\n' | sort | uniq) >/dev/null
+        last_lang=""
+        rm -f /var/lib/locales/supported.d/*
+        for locale in $(echo $locales "$NATIVE_LOCALE" | xargs | tr ' ' '\n' | sort | uniq); do
+                lang="${locale:0:2}"
+                full_locale="$locale.UTF-8 UTF8"
+                test "$last_lang" != "$lang" && truncate -s0 /var/lib/locales/supported.d/"$lang"
+                echo "$locale.UTF-8 UTF-8" >> /var/lib/locales/supported.d/"$lang"
+                language_packs="$language_packs language-pack-gnome-${lang}"
+                echo "$locale.UTF-8 UTF-8"
+                last_lang="$lang"
+        done > /etc/locale.gen
 
-	locale-gen --purge
+        apt-get install -y $(echo "$language_packs" | xargs | tr ' ' '\n' | sort | uniq) >/dev/null
+
+        locale-gen --purge
 
 }
 
 function default_locale {
 
-	locale="$1"
-	test -z "$locale" && locale="$NATIVE_LOCALE"
+        locale="$1"
+        test -z "$locale" && locale="$NATIVE_LOCALE"
 
-	echo "Setting up locale: $locale"
-	countrycode="${locale: -2}"
-	countrycode="${countrycode,,}"
-	update-locale "LANG=$locale.UTF-8" "LC_ALL=$locale.UTF-8" "LANGUAGE=$locale"
-	setxkbmap "$countrycode"
-	sed 's/XKBLAYOUT=.*/XKBLAYOUT="'"$countrycode"'"/' /etc/default/keyboard > /etc/default/keyboard.tmp
-	mv -f /etc/default/keyboard.tmp /etc/default/keyboard
+        echo "Setting up locale: $locale"
+        countrycode="${locale: -2}"
+        countrycode="${countrycode,,}"
+        update-locale "LANG=$locale.UTF-8" "LC_ALL=$locale.UTF-8" "LANGUAGE=$locale"
+        setxkbmap "$countrycode"
+        sed 's/XKBLAYOUT=.*/XKBLAYOUT="'"$countrycode"'"/' /etc/default/keyboard > /etc/default/keyboard.tmp
+        mv -f /etc/default/keyboard.tmp /etc/default/keyboard
 
 }
 
 function enable_guest_session {
 
-	printf "[Seat:*]\nallow-guest=true\nautologin-guest=true" > /etc/lightdm/lightdm.conf.d/40-enable-guest.conf
+        printf "[Seat:*]\nallow-guest=true\nautologin-guest=true" > /etc/lightdm/lightdm.conf.d/40-enable-guest.conf
 
 }
 
 function disable_guest_session {
 
-	rm -f /etc/lightdm/lightdm.conf.d/40-enable-guest.conf
+        rm -f /etc/lightdm/lightdm.conf.d/40-enable-guest.conf
 
 }
 
 function enable_screenlock {
 
-	rm -f /etc/X11/Xsession.d/98noscreenlock
-	xfce4-power-manager --daemon >/dev/null 2>&1
+        rm -f /etc/X11/Xsession.d/98noscreenlock
+        xfce4-power-manager --daemon >/dev/null 2>&1
 
 }
 
 function disable_screenlock {
 
-	echo 'bash -c "sleep 10; xset s off; xset -dpms; xfce4-power-manager -q" &' > /etc/X11/Xsession.d/98noscreenlock
-	xfce4-power-manager -q >/dev/null 2>&1
+        echo 'bash -c "sleep 10; xset s off; xset -dpms; xfce4-power-manager -q" &' > /etc/X11/Xsession.d/98noscreenlock
+        xfce4-power-manager -q >/dev/null 2>&1
 
 }
 
 function enable_persistent_storage {
 
-	external="$(get_enabled "$1")"
-	dirname="${2:-$NATIVE_PERSISTENT_DIRNAME}"
+        external="$(get_enabled "$1")"
+        dirname="${2:-$NATIVE_PERSISTENT_DIRNAME}"
 
-	echo -e "Enabling persistent storage for guest user:\n  Directory name: $dirname\n  External: ${external:-false}"
+        echo -e "Enabling persistent storage for guest user:\n  Directory name: $dirname\n  External: ${external:-false}"
 
-	clear_persistent_storage
+        clear_persistent_storage
 
-	test -n "$external" && echo "/dev/sdb1 $PERSISTENT_STORAGE_PATH vfat defaults,auto,nofail,umask=0000 0 0 # oi-vm" >> /etc/fstab
+        test -n "$external" && echo "/dev/sdb1 $PERSISTENT_STORAGE_PATH vfat defaults,auto,nofail,umask=0000 0 0 # oi-vm" >> /etc/fstab
 
-	! test -d "$PERSISTENT_STORAGE_PATH" && mkdir -m 0777 "$PERSISTENT_STORAGE_PATH"
-	setfacl -d -m o::rwX "$PERSISTENT_STORAGE_PATH" &&
-		setfacl -d -m g::rwX "$PERSISTENT_STORAGE_PATH" &&
-		setfacl -d -m u::rwX "$PERSISTENT_STORAGE_PATH" &&
-		setfacl -d -m mask::rwx "$PERSISTENT_STORAGE_PATH"
-	ln -sf "$PERSISTENT_STORAGE_PATH" "/etc/guest-session/skel/$dirname"
-	echo "cd \$HOME/$dirname" > /etc/guest-session/skel/.bashrc
-	echo "$dirname" > "$CONFIG_PATH"/persistent_storage_dirname.installed
+        ! test -d "$PERSISTENT_STORAGE_PATH" && mkdir -m 0777 "$PERSISTENT_STORAGE_PATH"
+        setfacl -d -m o::rwX "$PERSISTENT_STORAGE_PATH" &&
+                setfacl -d -m g::rwX "$PERSISTENT_STORAGE_PATH" &&
+                setfacl -d -m u::rwX "$PERSISTENT_STORAGE_PATH" &&
+                setfacl -d -m mask::rwx "$PERSISTENT_STORAGE_PATH"
+        ln -sf "$PERSISTENT_STORAGE_PATH" "/etc/guest-session/skel/$dirname"
+        echo "cd \$HOME/$dirname" > /etc/guest-session/skel/.bashrc
+        echo "$dirname" > "$CONFIG_PATH"/persistent_storage_dirname.installed
 
-	mkdir -p /etc/guest-session/skel/.config/Code/User/
-	cat << EOF > /etc/guest-session/skel/.config/Code/User/settings.json
+        mkdir -p /etc/guest-session/skel/.config/Code/User/
+        cat << EOF > /etc/guest-session/skel/.config/Code/User/settings.json
 {
   "terminal.integrated.cwd": "/home/contestant/$dirname",
   "files.autoSave": "afterDelay",
@@ -175,184 +208,184 @@ function enable_persistent_storage {
 }
 EOF
 
-	test -d /etc/guest-session/skel/Desktop || mkdir /etc/guest-session/skel/Desktop
-	ln -sf "$PERSISTENT_STORAGE_PATH" /etc/guest-session/skel/Desktop/"$dirname"
+        test -d /etc/guest-session/skel/Desktop || mkdir /etc/guest-session/skel/Desktop
+        ln -sf "$PERSISTENT_STORAGE_PATH" /etc/guest-session/skel/Desktop/"$dirname"
 
-	echo "touch \$HOME/.skip-guest-warning-dialog # oi-vm" >> /etc/guest-session/prefs.sh
-	if test "$locale" = ca_ES -o "$locale" = ca; then
-	! test -f /etc/guest-session/auto.sh && echo '#!/bin/bash' > /etc/guest-session/auto.sh
-	test -f /etc/guest-session/auto.sh && grep -v oi-vm /etc/guest-session/auto.sh > /etc/guest-session/auto.sh.tmp || echo "" > /etc/guest-session/auto.sh.tmp
-		echo '{ sleep 4; zenity --warning --no-wrap --title="Usuari temporal" --text="Totes les dades creades seran eliminades\nen sortir, incloent les configuracions de les aplicacions.\n\nPer garantir que en cas de fallida del sistema\nno perdis els programes, desa els teus codis\nal directori '"$dirname"'."; } & # oi-vm'
-	elif test "$locale" = es_ES -o "$locale" = es; then
-		echo '{ sleep 4; zenity --warning --no-wrap --title="Usuario temporal" --text="Al salir no se van a guardar los datos creados,\nincluidas las configuraciones de las aplicaciones.\n\nPara garantizar que en caso de fallo del sistema\nno pierdas los programas, guarda tus programas\nen el directorio '"$dirname"'."; } & # oi-vm'
-	else
-		echo '{ sleep 4; zenity --warning --no-wrap --title="Temporary user" --text="All your data will be lost when leaving the session,\nincluding the configuration of the applications.\n\nTo ensure your code is not lost in case of system failure,\nsave all your code in the '"$dirname"' directory."; } # oi-vm'
-	fi >> /etc/guest-session/auto.sh
-	chmod a+x /etc/guest-session/auto.sh
+        echo "touch \$HOME/.skip-guest-warning-dialog # oi-vm" >> /etc/guest-session/prefs.sh
+        if test "$locale" = ca_ES -o "$locale" = ca; then
+        ! test -f /etc/guest-session/auto.sh && echo '#!/bin/bash' > /etc/guest-session/auto.sh
+        test -f /etc/guest-session/auto.sh && grep -v oi-vm /etc/guest-session/auto.sh > /etc/guest-session/auto.sh.tmp || echo "" > /etc/guest-session/auto.sh.tmp
+                echo '{ sleep 4; zenity --warning --no-wrap --title="Usuari temporal" --text="Totes les dades creades seran eliminades\nen sortir, incloent les configuracions de les aplicacions.\n\nPer garantir que en cas de fallida del sistema\nno perdis els programes, desa els teus codis\nal directori '"$dirname"'."; } & # oi-vm'
+        elif test "$locale" = es_ES -o "$locale" = es; then
+                echo '{ sleep 4; zenity --warning --no-wrap --title="Usuario temporal" --text="Al salir no se van a guardar los datos creados,\nincluidas las configuraciones de las aplicaciones.\n\nPara garantizar que en caso de fallo del sistema\nno pierdas los programas, guarda tus programas\nen el directorio '"$dirname"'."; } & # oi-vm'
+        else
+                echo '{ sleep 4; zenity --warning --no-wrap --title="Temporary user" --text="All your data will be lost when leaving the session,\nincluding the configuration of the applications.\n\nTo ensure your code is not lost in case of system failure,\nsave all your code in the '"$dirname"' directory."; } # oi-vm'
+        fi >> /etc/guest-session/auto.sh
+        chmod a+x /etc/guest-session/auto.sh
 
 }
 
 function disable_persistent_storage {
 
-	echo "Disabling persistent storage for guest user"
+        echo "Disabling persistent storage for guest user"
 
-	clear_persistent_storage
+        clear_persistent_storage
 
 } 
 
 function clear_persistent_storage {
 
-	test -f /etc/guest-session/prefs.sh && grep -v oi-vm /etc/guest-session/prefs.sh > /etc/guest-session/prefs.sh.tmp || echo "" > /etc/guest-session/prefs.sh.tmp
-	mv -f /etc/guest-session/prefs.sh.tmp /etc/guest-session/prefs.sh
+        test -f /etc/guest-session/prefs.sh && grep -v oi-vm /etc/guest-session/prefs.sh > /etc/guest-session/prefs.sh.tmp || echo "" > /etc/guest-session/prefs.sh.tmp
+        mv -f /etc/guest-session/prefs.sh.tmp /etc/guest-session/prefs.sh
 
-	test -f /etc/guest-session/auto.sh && grep -v oi-vm /etc/guest-session/auto.sh > /etc/guest-session/auto.sh.tmp || echo "" > /etc/guest-session/auto.sh.tmp
-	mv -f /etc/guest-session/auto.sh.tmp /etc/guest-session/auto.sh
+        test -f /etc/guest-session/auto.sh && grep -v oi-vm /etc/guest-session/auto.sh > /etc/guest-session/auto.sh.tmp || echo "" > /etc/guest-session/auto.sh.tmp
+        mv -f /etc/guest-session/auto.sh.tmp /etc/guest-session/auto.sh
 
-	if ! is_enabled "$request_refresh"; then
-		umount "$PERSISTENT_STORAGE_PATH" 2>/dev/null
-		test -d "$PERSISTENT_STORAGE_PATH" && rm -rf "$PERSISTENT_STORAGE_PATH"
-	fi
+        if ! is_enabled "$param_refresh"; then
+                umount "$PERSISTENT_STORAGE_PATH" 2>/dev/null
+                test -d "$PERSISTENT_STORAGE_PATH" && rm -rf "$PERSISTENT_STORAGE_PATH"
+        fi
 
-	if test -f "$CONFIG_PATH"/persistent_storage_dirname.installed; then
-		olddirname="$(cat "$CONFIG_PATH"/persistent_storage_dirname.installed)"
-		rm -f /etc/guest-session/skel/"$olddirname" /etc/guest-session/skel/Desktop/"$olddirname" "$CONFIG_PATH"/persistent_storage_dirname.installed
-	fi
+        if test -f "$CONFIG_PATH"/persistent_storage_dirname.installed; then
+                olddirname="$(cat "$CONFIG_PATH"/persistent_storage_dirname.installed)"
+                rm -f /etc/guest-session/skel/"$olddirname" /etc/guest-session/skel/Desktop/"$olddirname" "$CONFIG_PATH"/persistent_storage_dirname.installed
+        fi
 
-	grep -v oi-vm /etc/fstab > /etc/fstab.tmp || echo "" > /etc/fstab.tmp
-	mv -f /etc/fstab.tmp /etc/fstab
+        grep -v oi-vm /etc/fstab > /etc/fstab.tmp || echo "" > /etc/fstab.tmp
+        mv -f /etc/fstab.tmp /etc/fstab
 
 }
 
 function set_logo {
 
-	logo="$1"
-	echo "Setting up logo: $logo"
-	ln -sf "$LOGOS_PATH/$logo" /usr/share/plymouth/themes/xubuntu-logo/logo.png
-	ln -sf /usr/share/plymouth/themes/xubuntu-logo/logo.png /usr/share/xfce4/backdrops/xubuntu-wallpaper.png
+        logo="$1"
+        echo "Setting up logo: $logo"
+        ln -sf "$LOGOS_PATH/$logo" /usr/share/plymouth/themes/xubuntu-logo/logo.png
+        ln -sf /usr/share/plymouth/themes/xubuntu-logo/logo.png /usr/share/xfce4/backdrops/xubuntu-wallpaper.png
 
 }
 
 function remove_logo {
 
-	echo "Removing logo"
-	rm -f /usr/share/plymouth/themes/xubuntu-logo/logo.png
+        echo "Removing logo"
+        rm -f /usr/share/plymouth/themes/xubuntu-logo/logo.png
 
 }
 
 function set_lock_message {
 
-	echo "Setting up lock message"
-	echo "" > "$CONFIG_PATH/lock_message.conf"
-	for param in title message width type options; do
-		echo "$param=$1" >> "$CONFIG_PATH/lock_message.conf"
-		shift
-	done
+        echo "Setting up lock message"
+        echo "" > "$CONFIG_PATH/lock_message.conf"
+        for param in title message width type options; do
+                echo "$param=$1" >> "$CONFIG_PATH/lock_message.conf"
+                shift
+        done
 
 }
 
 function enable_dns_lockdown {
 
-	interface="${1:-$NATIVE_DNS_LOCKDOWN_INTERFACE}"
-	shift
-	explicit_allowlist="$@"
+        interface="${1:-$NATIVE_DNS_LOCKDOWN_INTERFACE}"
+        shift
+        explicit_allowlist="$@"
 
-	domains=""
-	ips=""
-	for item in $explicit_allowlist $(echo $dns_lockdown_implicit_exceptions | xargs | tr ' ' '\n' | sort | uniq) $NATIVE_DNS_LOCKDOWN; do
-		test -n "$item" || continue
-		echo "$item" | grep -qE '^[0-9.]+$' && ips="$ips $item" || domains="$domains $(echo $item | idn --no-tld)"
-	done
-	echo -e "Enabling DNS lockdown:\n  Whitelisted domains:${domains:- -}\n  Whitelisted IPs:${ips:- -}"
-	(test -n "$domains" && echo "$domains" | tr ' ' '\n' || echo "") > /etc/dns-lockdown/domains.allowlist
-	(test -n "$ips" && echo "$ips" | tr ' ' '\n' || echo "") > /etc/dns-lockdown/ips.allowlist
-	echo -e "ENABLED=1\nINTERFACE=$interface" > /etc/dns-lockdown/config
-	systemctl enable dns-lockdown >/dev/null
-	systemctl enable dns-lockdown-monitor >/dev/null
-	systemctl restart dns-lockdown >/dev/null
-	systemctl restart dns-lockdown-monitor >/dev/null
+        domains=""
+        ips=""
+        for item in $explicit_allowlist $(echo $dns_lockdown_implicit_exceptions | xargs | tr ' ' '\n' | sort | uniq) $NATIVE_DNS_LOCKDOWN; do
+                test -n "$item" || continue
+                echo "$item" | grep -qE '^[0-9.]+$' && ips="$ips $item" || domains="$domains $(echo $item | idn --no-tld)"
+        done
+        echo -e "Enabling DNS lockdown:\n  Whitelisted domains:${domains:- -}\n  Whitelisted IPs:${ips:- -}"
+        (test -n "$domains" && echo "$domains" | tr ' ' '\n' || echo "") > /etc/dns-lockdown/domains.allowlist
+        (test -n "$ips" && echo "$ips" | tr ' ' '\n' || echo "") > /etc/dns-lockdown/ips.allowlist
+        echo -e "ENABLED=1\nINTERFACE=$interface" > /etc/dns-lockdown/config
+        systemctl enable dns-lockdown >/dev/null
+        systemctl enable dns-lockdown-monitor >/dev/null
+        systemctl restart dns-lockdown >/dev/null
+        systemctl restart dns-lockdown-monitor >/dev/null
 
 }
 
 function disable_dns_lockdown {
 
-	echo "Disabling DNS lockdown"
-	echo "ENABLED=0" > /etc/dns-lockdown/config
-	systemctl disable dns-lockdown >/dev/null
-	systemctl disable dns-lockdown-monitor >/dev/null
-	systemctl stop dns-lockdown-monitor >/dev/null
-	systemctl stop dns-lockdown >/dev/null
-	rm -f /etc/dns-lockdown/domains.allowlist /etc/dns-lockdown/ips.allowlist 2>/dev/null
+        echo "Disabling DNS lockdown"
+        echo "ENABLED=0" > /etc/dns-lockdown/config
+        systemctl disable dns-lockdown >/dev/null
+        systemctl disable dns-lockdown-monitor >/dev/null
+        systemctl stop dns-lockdown-monitor >/dev/null
+        systemctl stop dns-lockdown >/dev/null
+        rm -f /etc/dns-lockdown/domains.allowlist /etc/dns-lockdown/ips.allowlist 2>/dev/null
 
 }
 
 function enable_cms_tracking {
 
-	cms_contest_id="$1"
-	echo "Enabling CMS tracking. CMS contest ID: $cms_contest_id"
-	echo "$cms_contest_id" > "$CONFIG_PATH"/cms_contest_id.installed
+        cms_contest_id="$1"
+        echo "Enabling CMS tracking. CMS contest ID: $cms_contest_id"
+        echo "$cms_contest_id" > "$CONFIG_PATH"/cms_contest_id.installed
 
 }
 
 function disable_cms_tracking {
 
-	echo "Disabling CMS tracking"
-	rm -f "$CONFIG_PATH"/cms_contest_id.installed 2>/dev/null
+        echo "Disabling CMS tracking"
+        rm -f "$CONFIG_PATH"/cms_contest_id.installed 2>/dev/null
 
 }
 
 function static_hosts_cleanup {
-	echo "Cleaning up the hosts file"
-	sed -E '/^.*#[[:space:]]*OISETUP.*$/d' -i /etc/hosts
+        echo "Cleaning up the hosts file"
+        sed -E '/^.*#[[:space:]]*OISETUP.*$/d' -i /etc/hosts
 }
 
 function set_static_hosts {
-	static_hosts_cleanup
+        static_hosts_cleanup
 
-	echo -e "Static hosts:"
-	hosts=($@)
-	for ((i = 0; i < ${#hosts[@]}; i += 2)); do
-		host_name="${hosts[i]}"
-		host_ip="${hosts[i+1]:-0.0.0.0}"
-		echo "$host_ip $host_name # OISETUP" >> /etc/hosts
-		dns_lockdown_implicit_exceptions="$dns_lockdown_implicit_exceptions $host_ip"
-		echo -e "  $host_name -> $host_ip"
-	done
+        echo -e "Static hosts:"
+        hosts=($@)
+        for ((i = 0; i < ${#hosts[@]}; i += 2)); do
+                host_name="${hosts[i]}"
+                host_ip="${hosts[i+1]:-0.0.0.0}"
+                echo "$host_ip $host_name # OISETUP" >> /etc/hosts
+                dns_lockdown_implicit_exceptions="$dns_lockdown_implicit_exceptions $host_ip"
+                echo -e "  $host_name -> $host_ip"
+        done
 }
 
 function firefox_settings {
 
-	homepage="$1"
-	contest_name="$2"
-	extensions="$3"
-	test $# -ge 3 && shift 3 || shift $#
-	bookmarks=($@)
+        homepage="$1"
+        contest_name="$2"
+        extensions="$3"
+        test $# -ge 3 && shift 3 || shift $#
+        bookmarks=($@)
 
-	test -n "$homepage" && bookmarks=("$homepage" "${contest_name:-$homepage}" "${bookmarks[@]}")
+        test -n "$homepage" && bookmarks=("$homepage" "${contest_name:-$homepage}" "${bookmarks[@]}")
 
-	bookmarks_policy=""
-	bookmarks_descr=""
-	for ((i = 0; i < ${#bookmarks[@]}; i += 2)); do
-		bookmark_url="${bookmarks[i]}"
-		bookmark_name="${bookmarks[i+1]}"
-		test "${bookmark_url:0:4}" != "http" && bookmark_url="https://$bookmark_url"
-		test -n "$bookmarks_policy" && bookmarks_policy="$bookmarks_policy, "
-		bookmarks_policy="$bookmarks_policy{ \"URL\": \"$bookmark_url\", \"Title\": \"$bookmark_name\" }"
-		test -n "$bookmarks_descr" && bookmarks_descr="$bookmarks_descr, "
-		bookmarks_descr="$bookmarks_descr'$bookmark_name' => $bookmark_url"
-		dns_lockdown_implicit_exceptions="$dns_lockdown_implicit_exceptions $(get_domain "$bookmark_url")"
-	done
+        bookmarks_policy=""
+        bookmarks_descr=""
+        for ((i = 0; i < ${#bookmarks[@]}; i += 2)); do
+                bookmark_url="${bookmarks[i]}"
+                bookmark_name="${bookmarks[i+1]}"
+                test "${bookmark_url:0:4}" != "http" && bookmark_url="https://$bookmark_url"
+                test -n "$bookmarks_policy" && bookmarks_policy="$bookmarks_policy, "
+                bookmarks_policy="$bookmarks_policy{ \"URL\": \"$bookmark_url\", \"Title\": \"$bookmark_name\" }"
+                test -n "$bookmarks_descr" && bookmarks_descr="$bookmarks_descr, "
+                bookmarks_descr="$bookmarks_descr'$bookmark_name' => $bookmark_url"
+                dns_lockdown_implicit_exceptions="$dns_lockdown_implicit_exceptions $(get_domain "$bookmark_url")"
+        done
 
-	extensions_policy=""
-	for extension in $extensions; do
-		test "${extension:0:5}" != "http" -a "${extension:0:1}" != "/" && extension="/usr/lib/firefox-addons/distribution/extensions/$extension.xpi"
-		test -n "$extensions_policy" && extensions_policy="$extensions_policy, "
-		extensions_policy="$extensions_policy\"$extension\""
-	done
+        extensions_policy=""
+        for extension in $extensions; do
+                test "${extension:0:5}" != "http" -a "${extension:0:1}" != "/" && extension="/usr/lib/firefox-addons/distribution/extensions/$extension.xpi"
+                test -n "$extensions_policy" && extensions_policy="$extensions_policy, "
+                extensions_policy="$extensions_policy\"$extension\""
+        done
 
-	echo -e "Establishing firefox settings:\n  Homepage: $homepage\n  Bookmarks: $bookmarks_descr\n  Extensions: $extensions_policy"
+        echo -e "Establishing firefox settings:\n  Homepage: $homepage\n  Bookmarks: $bookmarks_descr\n  Extensions: $extensions_policy"
 
-	! test -d /etc/firefox/policies && mkdir /etc/firefox/policies
-	echo '{
+        ! test -d /etc/firefox/policies && mkdir /etc/firefox/policies
+        echo '{
   "policies": {
     "Extensions": {
       "Install": [
@@ -390,163 +423,185 @@ function firefox_settings {
   }
 }' >  /etc/firefox/policies/policies.json
 
-	test -n "$homepage" && dns_lockdown_implicit_exceptions="$dns_lockdown_implicit_exceptions $(get_domain "$homepage")"
-	test -n "$bookmark_urls" && dns_lockdown_implicit_exceptions="$dns_lockdown_implicit_exceptions $(get_domain "${bookmark_urls[@]}")"
+        test -n "$homepage" && dns_lockdown_implicit_exceptions="$dns_lockdown_implicit_exceptions $(get_domain "$homepage")"
+        test -n "$bookmark_urls" && dns_lockdown_implicit_exceptions="$dns_lockdown_implicit_exceptions $(get_domain "${bookmark_urls[@]}")"
 
 }
 
 function enable_httptun {
 
-	server="$1"
-	password="$2"
-	user="${3:-$NATIVE_PROCTOR_USER}"
-	monitor="$(get_enabled "$4")"
-	shift 4
-	oiproctor_diff_ignore="$@"
+        server="$1"
+        password="$2"
+        user="${3:-$NATIVE_PROCTOR_USER}"
+        monitor="$(get_enabled "$4")"
+        shift 4
+        oiproctor_diff_ignore="$@"
 
-	echo -e "Enabling httptun:\n  Server: $server\n  Password: $password\n  Proctor user: $user\n  Monitor: ${monitor:-false}"
+        echo -e "Enabling httptun:\n  Server: $server\n  Password: $password\n  Proctor user: $user\n  Monitor: ${monitor:-false}"
 
-	test -n "$monitor" && enable_monitor || disable_monitor
+        test -n "$monitor" && enable_monitor || disable_monitor
 
-	echo "$user ALL=(ALL) NOPASSWD: ALL" > "/etc/sudoers.d/$user"
+        echo "$user ALL=(ALL) NOPASSWD: ALL" > "/etc/sudoers.d/$user"
 
-	chmod go-rwx "/home/$user/.ssh/authorized_keys"
-	chown "$user:$user" "/home/$user/.ssh/authorized_keys"
+        chmod go-rwx "/home/$user/.ssh/authorized_keys"
+        chown "$user:$user" "/home/$user/.ssh/authorized_keys"
 
-	echo "$NATIVE_PROCTOR_DIFF_IGNORE $oiproctor_diff_ignore" | xargs | tr ' ' '\n' > "/home/$user/oiproctor_diff.ignore"
+        echo "$NATIVE_PROCTOR_DIFF_IGNORE $oiproctor_diff_ignore" | xargs | tr ' ' '\n' > "/home/$user/oiproctor_diff.ignore"
 
-	echo "ENABLED=1" > /etc/httptun
-	echo "SERVER=\"$server\"" >> /etc/httptun
-	echo "PASSWORD=\"$password\"" >> /etc/httptun
+        echo "ENABLED=1" > /etc/httptun
+        echo "SERVER=\"$server\"" >> /etc/httptun
+        echo "PASSWORD=\"$password\"" >> /etc/httptun
 
-	chmod go-rwx /etc/httptun
+        chmod go-rwx /etc/httptun
 
-	systemctl restart httptun >/dev/null
-	systemctl restart httptun-keepalive >/dev/null
+        /usr/local/sbin/oiproctor_mac
+        systemctl restart httptun-launch >/dev/null
+        systemctl restart httptun-keepalive >/dev/null
 
-	dns_lockdown_implicit_exceptions="$dns_lockdown_implicit_exceptions $(get_domain "$server")"
+        dns_lockdown_implicit_exceptions="$dns_lockdown_implicit_exceptions $(get_domain "$server")"
 
-	echo "$user" > "$CONF_PATH/proctor_user.installed"
+        echo "$user" > "$CONF_PATH/proctor_user.installed"
 
 }
 
 function disable_httptun {
 
-	echo "Disabling httptun"
+        echo "Disabling httptun"
 
-	disable_monitor
+        disable_monitor
 
-	rm -f /home/contestant
+        rm -f /home/contestant
 
-	PROCTOR_USER_PATH="$CONF_PATH/proctor_user.installed"
-	if test -f "$PROCTOR_USER_PATH"; then
-		user="$(cat "$PROCTOR_USER_PATH")"
-		if test -n "$user"; then
-			rm -f "/etc/sudoers.d/$user"
-			rm -f "/home/$user/oiproctor_diff.ignore"
-		fi
-	fi
+        PROCTOR_USER_PATH="$CONF_PATH/proctor_user.installed"
+        if test -f "$PROCTOR_USER_PATH"; then
+                user="$(cat "$PROCTOR_USER_PATH")"
+                if test -n "$user"; then
+                        rm -f "/etc/sudoers.d/$user"
+                        rm -f "/home/$user/oiproctor_diff.ignore"
+                fi
+        fi
 
-	echo "ENABLED=0" > /etc/httptun
+        echo "ENABLED=0" > /etc/httptun
 
-	systemctl stop httptun-keepalive >/dev/null
-	systemctl stop httptun >/dev/null
+        systemctl stop httptun-keepalive >/dev/null
+        systemctl stop httptun-launch >/dev/null
 
-	rm -f "$CONF_PATH/proctor_user.installed"
+        rm -f "$CONF_PATH/proctor_user.installed"
 
 }
 
 function enable_monitor {
 
-	systemctl enable oiproctor_monitor >/dev/null
-	systemctl restart oiproctor_monitor >/dev/null
+        systemctl enable oiproctor_monitor >/dev/null
+        systemctl restart oiproctor_monitor >/dev/null
 
 }
 
 function disable_monitor {
 
-	systemctl disable oiproctor_monitor >/dev/null
-	systemctl stop oiproctor_monitor >/dev/null
+        systemctl disable oiproctor_monitor >/dev/null
+        systemctl stop oiproctor_monitor >/dev/null
 
 }
 
 function install_apt_packages {
 
-	packages="$@"
-	remove_apt_packages $(get_items_in_first_list_only "$(cat "$CONFIG_PATH"/apt.installed 2>/dev/null | xargs)" "$packages")
-	packages="$@" # $packages has been overwritten by remove_apt_packages
+        packages="$@"
+        remove_apt_packages $(get_items_in_first_list_only "$(cat "$CONFIG_PATH"/apt.installed 2>/dev/null | xargs)" "$packages")
+        packages="$@" # $packages has been overwritten by remove_apt_packages
 
-	echo "Installing apt packages: $packages"
+        echo "Installing apt packages: $packages"
 
-	apt-get install -y $packages
-	echo "$packages" > "$CONFIG_PATH"/apt.installed
+        apt-get install -y $packages
+        echo "$packages" > "$CONFIG_PATH"/apt.installed
 
 }
 
 function remove_apt_packages {
 
-	packages="$@"
-	test "$packages" = ALL && packages="$(cat "$CONFIG_PATH"/apt.installed 2>/dev/null | xargs)"
-	test -z "$packages" && return
+        packages="$@"
+        test "$packages" = ALL && packages="$(cat "$CONFIG_PATH"/apt.installed 2>/dev/null | xargs)"
+        test -z "$packages" && return
 
-	echo "Uninstalling apt packages: $packages"
-	apt-get remove -y $packages && test "$@" = ALL && rm -f "$CONFIG_PATH/apt.installed" 2>/dev/null
+        echo "Uninstalling apt packages: $packages"
+        apt-get remove -y $packages && test "$@" = ALL && rm -f "$CONFIG_PATH/apt.installed" 2>/dev/null
 
 }
 
 function install_pip_packages {
 
-	packages="$@"
-	remove_pip_packages $(get_items_in_first_list_only "$(cat "$CONFIG_PATH"/pip.installed 2>/dev/null | xargs)" "$packages")
-	packages="$@" # $packages has been overwritten by remove_pip_packages
+        packages="$@"
+        remove_pip_packages $(get_items_in_first_list_only "$(cat "$CONFIG_PATH"/pip.installed 2>/dev/null | xargs)" "$packages")
+        packages="$@" # $packages has been overwritten by remove_pip_packages
 
-	echo "Installing pip packages: $packages"
+        echo "Installing pip packages: $packages"
 
-	pip3 install --break-system-packages -q $packages 2>&1 | grep -v "pip as the 'root' user"
-	echo "$packages" > "$CONFIG_PATH"/pip.installed
+        pip3 install --break-system-packages -q $packages 2>&1 | grep -v "pip as the 'root' user"
+        echo "$packages" > "$CONFIG_PATH"/pip.installed
 
 }
 
 function remove_pip_packages {
 
-	packages="$@"
-	test "$packages" = ALL && packages="$(cat "$CONFIG_PATH"/pip.installed 2>/dev/null | xargs)"
-	test -z "$packages" && return
+        packages="$@"
+        test "$packages" = ALL && packages="$(cat "$CONFIG_PATH"/pip.installed 2>/dev/null | xargs)"
+        test -z "$packages" && return
 
-	echo "Uninstalling pip packages: $packages"
-	pip3 uninstall --break-system-packages -q -y $packages | grep -v "pip as the 'root' user" && test "$@" = ALL && rm -f "$CONFIG_PATH/pip.installed" 2>/dev/null
+        echo "Uninstalling pip packages: $packages"
+        pip3 uninstall --break-system-packages -q -y $packages | grep -v "pip as the 'root' user" && test "$@" = ALL && rm -f "$CONFIG_PATH/pip.installed" 2>/dev/null
 
 }
 
 function update_system_password {
 
-	user="$1"
-	pass="$2"
-	echo "Updating system user password: $user"
-	sed -E "s|^$user:.*|$user:$pass::0:99999:7:::|" -i /etc/shadow # Generate the password hash with `openssl passwd -6 -salt <salt> <password>`
+        user="$1"
+        pass="$2"
+        echo "Updating system user password: $user"
+        sed -E "s|^$user:.*|$user:$pass::0:99999:7:::|" -i /etc/shadow # Generate the password hash with `openssl passwd -6 -salt <salt> <password>`
 
 }
 
 function lock_cleanup {
 
-	echo "Cleaning up the lock"
-	mv /etc/lightdm/lightdm.conf.d/40-enable-lock-message.conf /etc/lightdm/lightdm.conf.d/40-enable-lock-message.conf.disable 2>/dev/null
-	mv /etc/lightdm/lightdm.conf.d/40-enable-guest.conf.disable /etc/lightdm/lightdm.conf.d/40-enable-guest.conf 2>/dev/null
+        echo "Cleaning up the lock"
+        mv /etc/lightdm/lightdm.conf.d/40-enable-lock-message.conf /etc/lightdm/lightdm.conf.d/40-enable-lock-message.conf.disable 2>/dev/null
+        mv /etc/lightdm/lightdm.conf.d/40-enable-guest.conf.disable /etc/lightdm/lightdm.conf.d/40-enable-guest.conf 2>/dev/null
 
 }
 
 function host_cleanup {
 
-	echo "Cleaning up the host"
-	apt clean
-	find /var/log -type f -delete
-	find /var/lib/snapd/cache/ -type f -delete
-	find /home/oi/.local/share/Trash -type f -delete
-	snap list --all | awk '/disabled/{print $1, $3}' | while read snapname revision; do sudo snap remove "$snapname" --revision="$revision"; done
-	rm -f /home/oi/.bash_history* /root/.bash_history /home/oi/.lesshst /home/oi/.python_history /homme/oi/.viminfo /home/oi/.xsession-errors* /home/oi/.wget-hsts
-	rm -rf /home/oi/.vscode /home/oi/.config/Code/ /home/.cache/mozilla
-	find /var/tmp -type f -delete
-	find /tmp -type f -delete
+        echo "Cleaning up the host"
+        apt clean
+        find /var/log -type f -delete
+        find /var/lib/snapd/cache/ -type f -delete
+        find /home/oi/.local/share/Trash -type f -delete
+        snap list --all | awk '/disabled/{print $1, $3}' | while read snapname revision; do sudo snap remove "$snapname" --revision="$revision"; done
+        rm -f /home/oi/.bash_history* /root/.bash_history /home/oi/.lesshst /home/oi/.python_history /homme/oi/.viminfo /home/oi/.xsession-errors* /home/oi/.wget-hsts
+        rm -rf /home/oi/.vscode /home/oi/.config/Code/ /home/.cache/mozilla
+        find /var/tmp -type f -delete
+        find /tmp -type f -delete
+
+}
+
+function defragment_disk {
+
+        echo -n "Defragmenting disk..."
+        dd if=/dev/zero of=/var/tmp/bigemptyfile bs=4096k >/dev/null 2>&1; rm /var/tmp/bigemptyfile >/dev/null 2>&1
+        echo ' done. Before exporting the VM, run from the host `vboxmanage modifymedium --compact ./OI-disk001.vdi`'
+
+}
+
+function defragment_notice {
+
+        echo 'If you are going to export the VM, run `sudo dd if=/dev/zero of=/var/tmp/bigemptyfile bs=4096k; sudo rm /var/tmp/bigemptyfile` and then from the host run `vboxmanage modifymedium --compact ./OI-disk001.vdi`'
+
+}
+
+function store_vm_uuid {
+
+        echo "Storing VM UUID for reference"
+        get_vm_uuid > "$CONFIG_PATH/uuid.installed"
 
 }
 
@@ -557,23 +612,23 @@ function host_cleanup {
 test -z "$CONTEST_NAME" && echo "Missing CONTEST_NAME value in $profile_path!" >&2 && exit 1
 
 if test -n "$LOGO_PATH"; then
-	! test -f "$LOGOS_PATH/$LOGO_PATH" && echo "Invalid LOGO_PATH value in $profile_path: $LOGOS_PATH/$LOGO_PATH does not exist!" >&2 && exit 1
-	! test "${LOGO_PATH/*.}" = "png" && echo "Invalid LOGO_PATH format in $profile_path: $LOGO_PATH must be a png file!" >&2 && exit 1
+        ! test -f "$LOGOS_PATH/$LOGO_PATH" && echo "Invalid LOGO_PATH value in $profile_path: $LOGOS_PATH/$LOGO_PATH does not exist!" >&2 && exit 1
+        ! test "${LOGO_PATH/*.}" = "png" && echo "Invalid LOGO_PATH format in $profile_path: $LOGO_PATH must be a png file!" >&2 && exit 1
 fi
 
 if test -n "$PROCTOR_TUNNEL_URL" -o -n "$PROCTOR_TUNNEL_PASSWORD"; then
-	test -z "$PROCTOR_TUNNEL_URL" && echo "Invalid PROCTOR_TUNNEL_URL value in $profile_path: Cannot define a value in PROCTOR_TUNNEL_PASSWORD without a value in PROCTOR_TUNNEL_URL!" >&2 && exit 1
-	test -z "$PROCTOR_TUNNEL_PASSWORD" && echo "Invalid PROCTOR_TUNNEL_PASSWORD value in $profile_path: Defining a value in PROCTOR_TUNNEL_PASSWORD is mandatory if PROCTOR_TUNNEL_URL is set!" >&2 && exit 1
-	test -n "$PROCTOR_TUNNEL_URL" -a ! "${PROCTOR_TUNNEL_URL:0:7}" != "https://" && echo "Invalid settings in $profile_path: PROCTOR_TUNNEL_URL must begin with https://!" >&2 && exit 1
-	test -n "$PROCTOR_TUNNEL_URL" && test -z "$(get_domain "$PROCTOR_TUNNEL_URL")" && echo "Invalid PROCTOR_TUNNEL_URL value in $profile_path: $PROCTOR_TUNNEL_URL is not a valid URL!" >&2 && exit 1
-	test -n "$PROCTOR_USER" -a ! -d "/home/$PROCTOR_USER" && echo "$Invalid PROCTOR_USER value in $profile_path: $PROCTOR_USER is not a valid user!" >&2 && exit 1
-	! test -f "/home/${PROCTOR_USER:-$NATIVE_PROCTOR_USER}/.ssh/authorized_keys" && echo "User ${PROCTOR_USER:-$NATIVE_PROCTOR_USER} has no \$HOME/.ssh/authorized_keys file!" >&2 && exit 1
+        test -z "$PROCTOR_TUNNEL_URL" && echo "Invalid PROCTOR_TUNNEL_URL value in $profile_path: Cannot define a value in PROCTOR_TUNNEL_PASSWORD without a value in PROCTOR_TUNNEL_URL!" >&2 && exit 1
+        test -z "$PROCTOR_TUNNEL_PASSWORD" && echo "Invalid PROCTOR_TUNNEL_PASSWORD value in $profile_path: Defining a value in PROCTOR_TUNNEL_PASSWORD is mandatory if PROCTOR_TUNNEL_URL is set!" >&2 && exit 1
+        test -n "$PROCTOR_TUNNEL_URL" -a ! "${PROCTOR_TUNNEL_URL:0:7}" != "https://" && echo "Invalid settings in $profile_path: PROCTOR_TUNNEL_URL must begin with https://!" >&2 && exit 1
+        test -n "$PROCTOR_TUNNEL_URL" && test -z "$(get_domain "$PROCTOR_TUNNEL_URL")" && echo "Invalid PROCTOR_TUNNEL_URL value in $profile_path: $PROCTOR_TUNNEL_URL is not a valid URL!" >&2 && exit 1
+        test -n "$PROCTOR_USER" -a ! -d "/home/$PROCTOR_USER" && echo "$Invalid PROCTOR_USER value in $profile_path: $PROCTOR_USER is not a valid user!" >&2 && exit 1
+        ! test -f "/home/${PROCTOR_USER:-$NATIVE_PROCTOR_USER}/.ssh/authorized_keys" && echo "User ${PROCTOR_USER:-$NATIVE_PROCTOR_USER} has no \$HOME/.ssh/authorized_keys file!" >&2 && exit 1
 fi
 
 test -n "$CONTEST_URL" && test -z "$(get_domain "$CONTEST_URL")" && echo "Invalid CONTEST_URL value in $profile_path: $CONTEST_URL is not a valid URL!" >&2 && exit 1
 
 for locale in $AVAILABLE_LOCALES; do
-	grep -qE "^$locale.UTF-8 UTF-8\$" /usr/share/i18n/SUPPORTED || error "Unsupported locale $locale!"
+        grep -qE "^$locale.UTF-8 UTF-8\$" /usr/share/i18n/SUPPORTED || error "Unsupported locale $locale!"
 done
 test -n "$DEFAULT_LOCALE" && ! echo " $AVAILABLE_LOCALES $NATIVE_LOCALE " | grep -q " ${DEFAULT_LOCALE} " && error "Default locale $DEFAULT_LOCALE is not set up as available in AVAILABLE_LOCALES!"
 
@@ -625,5 +680,5 @@ vm_version_update
 # Save profile as current profile
 ! test -e "$default_profile_path" || test -L "$default_profile_path" && test "$default_profile_path" != "$profile_path" && ln -sf "$profile_path" "$default_profile_path"
 
-# VM export instructions
-echo 'If you are going to export the VM, run `sudo dd if=/dev/zero of=/var/tmp/bigemptyfile bs=4096k; sudo rm /var/tmp/bigemptyfile` and then from the host `vboxmanage modifymedium --compact ./OI-disk001.vdi`'
+# No more disk changes left, defrag if requested
+if is_enabled "$param_defrag"; then defragment_disk; else defragment_notice; fi

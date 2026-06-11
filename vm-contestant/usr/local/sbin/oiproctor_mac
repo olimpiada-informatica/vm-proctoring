@@ -1,0 +1,10 @@
+#!/bin/bash
+CONFIG_PATH="/etc/oisetup"
+UUID_PATH="$CONFIG_PATH/uuid.installed"
+MAC_PATH="$CONFIG_PATH/oiproctor_mac.installed"
+
+base_uuid="$(cat "$UUID_PATH" 2>/dev/null)"
+vm_uuid="$(get_vm_uuid)"
+test "$vm_uuid" != "$base_uuid" &&
+	head -c 6 /dev/random | hexdump -v -e '/1 "%02X"' > "$MAC_PATH" &&
+	echo "$vm_uuid" > "$UUID_PATH"

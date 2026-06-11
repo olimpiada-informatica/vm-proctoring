@@ -32,7 +32,7 @@ function get_message {
 	if test -n "$ip"; then
 		echo "$ip" | cut -d. -f3-
 	else
-		mac="$(cat /var/run/randommac)"
+		mac="$(cat /etc/oisetup/oiproctor_mac.installed)"
 		echo "$mac"
 	fi
 }
