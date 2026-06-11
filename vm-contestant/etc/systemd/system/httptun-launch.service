@@ -4,7 +4,7 @@ After=syslog.target network.target remote-fs.target nss-lookup.target
 StartLimitInterval=0
 
 [Service]
-ExecStart=/usr/local/sbin/httptun
+ExecStart=/usr/local/sbin/httptun-launch
 Restart=always
 RestartSec=30
 

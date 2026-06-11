@@ -1,0 +1,8 @@
+[Unit]
+Description=Random OI Proctor MAC
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/oiproctor_mac
+[Install]
+WantedBy=multi-user.target
+

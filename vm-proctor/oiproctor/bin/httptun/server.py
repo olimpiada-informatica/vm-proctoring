@@ -7,6 +7,7 @@ import threading
 import traceback
 import urllib.parse
 import binascii
+import json
 from queue import Queue, Empty
 
 from common import get_mac, BROADCAST, dequeue, parse_packets, serialize_packets
@@ -16,11 +17,42 @@ from wsgiserver import WSGIServer
 MYMAC = b'ter000'
 IP_PREFIX = (10, 9)
 VARRUNPATH = "/opt/oiproctor/run/connections"
+MAC_IP_MAPFILE = "/opt/oiproctor/run/mac_ip_map.json"
 
 ip_sequential = 2
 
 queue = dict()
 ips = dict()
+
+
+def load_mac_ip_map():
+    """Load the MAC-to-IP mapping from persistent storage"""
+    global ips, ip_sequential
+    if os.path.exists(MAC_IP_MAPFILE):
+        try:
+            with open(MAC_IP_MAPFILE, "r") as f:
+                data = json.load(f)
+                ips = {binascii.unhexlify(k): bytes(v) for k, v in data.items()}
+                # Find the highest ip_sequential used
+                for ip in ips.values():
+                    ip_int = (ip[2] << 8) + ip[3]
+                    if ip_int >= ip_sequential:
+                        ip_sequential = ip_int + 1
+        except:
+            traceback.print_exc()
+
+
+def save_mac_ip_map():
+    """Save the MAC-to-IP mapping to persistent storage"""
+    varrundir = os.path.dirname(MAC_IP_MAPFILE)
+    if not os.path.exists(varrundir):
+        os.makedirs(varrundir)
+    try:
+        with open(MAC_IP_MAPFILE, "w") as f:
+            data = {binascii.hexlify(k).decode('ascii'): list(v) for k, v in ips.items()}
+            json.dump(data, f)
+    except:
+        traceback.print_exc()
 
 
 def init_queue(dest_mac):
@@ -61,28 +93,41 @@ def inner_application(env, start_response):
             if msg.split(" ", 1)[1] != password:
                 start_response('403 Forbidden', bytes(), [])
                 return [b"bad password"]
-            while True:
-                new_mac = b'terc' + os.urandom(2)
-                if new_mac not in queue:
-                    break
-            global ip_sequential
-            ip = bytes(
-                bytearray(IP_PREFIX) + bytearray((ip_sequential // 256,
-                                                  ip_sequential % 256)))
-            ip_sequential += 1
-            init_queue(new_mac)
-            ips[new_mac] = ip
+
+            # Convert org_mac string to bytes
+            try:
+                client_mac = binascii.unhexlify(org_mac)
+            except:
+                client_mac = org_mac.encode() if isinstance(org_mac, str) else org_mac
+
+            # Check if this client already has an IP
+            if client_mac in ips:
+                ip = ips[client_mac]
+                if client_mac not in queue:
+                    init_queue(client_mac)
+            else:
+                global ip_sequential
+                ip = bytes(
+                    bytearray(IP_PREFIX) + bytearray((ip_sequential // 256,
+                                                      ip_sequential % 256)))
+                ip_sequential += 1
+                init_queue(client_mac)
+                ips[client_mac] = ip
+                save_mac_ip_map()
+
             f = open("/opt/oiproctor/log/httptun.log", "a")
-            f.write(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") + " " + org_mac + " -> " + binascii.hexlify(new_mac).decode('ascii') + " " + ".".join(map(str, ip)) + "\n")
+            f.write(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") + " " + org_mac + " -> " + binascii.hexlify(client_mac).decode('ascii') + " " + ".".join(map(str, ip)) + "\n")
             f.close()
+
             ips_text = ""
             for k, v in ips.items():
-       	            ips_text = ".".join(map(str, v)) + " " + binascii.hexlify(k).decode('ascii') + "\n" + ips_text # We write it in reverse order so newest entries are on top of older ones
+                ips_text = ".".join(map(str, v)) + " " + binascii.hexlify(k).decode('ascii') + "\n" + ips_text # We write it in reverse order so newest entries are on top of older ones
             f = open(VARRUNPATH, "w")
             f.write(ips_text)
             f.close()
+
             start_response('200 OK', ip, [])
-            return [new_mac, ip]
+            return [client_mac, ip]
 
         if env['PATH_INFO'] == '/send':
             client_mac = env['wsgi.input'].read(6)
@@ -152,6 +197,9 @@ def main():
         print("Usage: %s password" % sys.argv[0])
         sys.exit(1)
     password = sys.argv[1]
+
+    load_mac_ip_map()  # Load existing mappings on startup
+
     tap = TunTapDevice(flags=IFF_TAP)
     tap.addr = ".".join(map(str, IP_PREFIX + (0, 1)))
     tap.netmask = '255.255.0.0'

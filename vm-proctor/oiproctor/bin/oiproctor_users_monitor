@@ -8,7 +8,7 @@ const fs    	= require('fs');
 const { exec }	= require("child_process");
 
 const config	= {};
-var users_map   = {};
+var users_map   = { ips: {}, usernames: {}, };
 var cache   	= {};
 var alerts      = [];
 
@@ -42,7 +42,7 @@ const requestListener = function (req, res) {
 
 		alerts.forEach(alert => {
 			if (since && since < alert.timestamp) return;
-			output += `<div><div class="timestamp">${alert.timestamp}</div><div class="user">${alert.user}</div><div class="message">${alert.message}</div></div>`;
+			output += `<div><div class="timestamp">${alert.timestamp}</div><div class="user">${alert.ip}</div><div class="message">${alert.message}</div></div>`;
 		});
 
 		output  += '</body></html>';
@@ -60,7 +60,7 @@ const requestListener = function (req, res) {
 
 		if (!ip.match(new RegExp(config.update_allowlist)) && !ip.match(new RegExp(config.update_whitelist))) return console.error(`Invalid source IP ${ip} trying to notiy ${msg}`);
 
-		alerts.push({ timestamp: Date.now(), user: ip, message: msg });
+		alerts.push({ timestamp: Date.now(), ip: ip, message: msg });
 
 		res.write('{ "success": true }');
 
@@ -68,35 +68,37 @@ const requestListener = function (req, res) {
 
 	const update = (req, res) => {
 
-		const user  	= params.get(config.cms_contest_shortname + '_login');
+		const username 	= params.get(config.cms_contest_shortname + '_login');
 
-		if (!user) return;
-		if (!config.cms_users.includes(user)) return; // Whitelist to prevent http requests poisoning the dns
+		if (!username) return;
+		if (!config.cms_users.includes(username)) return; // Whitelist to prevent http requests poisoning the dns
 
 		const ip    	= req.headers['x-forward-for'] || req.socket.remoteAddress;
 
-		if (!ip.match(new RegExp(config.update_allowlist)) && !ip.match(new RegExp(config.update_whitelist))) return console.error(`Invalid source IP ${ip} trying to register ${user}`);
+		if (!ip.match(new RegExp(config.update_allowlist)) && !ip.match(new RegExp(config.update_whitelist))) return console.error(`Invalid source IP ${ip} trying to register ${username}`);
 
-		const user_obj  = { user: user, ip: ip, timestamp: Date.now(), };
+		const user_obj  = { username: username, ip: ip, timestamp: Date.now(), };
 
-		if (users_map[ip]?.user === user) {
-			users_map[ip] = user_obj;
+		if (users_map.ips[ip]?.username === username) {
+			users_map.ips[ip] = user_obj;
 			return;
 		}
 
-		const datetime  = date_formatted();
-		const old_user  = users_map[ip]?.user;
-		let old_ip  	= Object.keys(users_map).find(k => users_map[k].user == user);
+		users_map.usernames[username] = ip;
 
-		if (old_ip) delete users_map[old_ip];
+		const datetime      = date_formatted();
+		const old_username  = users_map.ips[ip]?.username;
+		let old_ip  	    = Object.keys(users_map.ips).find(k => users_map.ips[k].username == username);
 
-		const info  	= datetime + '\t' + ip + '\t' + user;
+		if (old_ip) delete users_map.ips[old_ip];
+
+		const info  	= datetime + '\t' + ip + '\t' + username;
 		let warning 	= '';
-		if (old_user && old_user != user) warning += '\t' + '<' + old_user;
+		if (old_username && old_username != username) warning += '\t' + '<' + old_username;
 		if (old_ip) warning += (warning ? ',' : '\t') + '<' + old_ip;
 		console[warning ? 'warn' : 'log'](info + warning);
 
-		users_map[ip] = user_obj;
+		users_map.ips[ip] = user_obj;
 
 		fs.writeFileSync(
 			config.proctor_users_path,
@@ -120,17 +122,17 @@ const requestListener = function (req, res) {
 		output	+= '<style>.user { display: inline-block; float: left; padding: 1em; text-align: center; min-width: 5em; border: 1px dotted grey; font-family: monospace; } .first { clear: left; } .online { background-color: green; color: white; } .offline { background-color: red; } .idle { background-color: yellow; }</style>';
 
 		let old_team;
-		[ ...new Set(config.cms_users) ].sort().forEach(user => {
+		[ ...new Set(config.cms_users) ].sort().forEach(username => {
 
-			const team     	= user.substring(0, 2);
+			const team     	= username.substring(0, 2);
 
-			const user_obj 	= Object.values(users_map).find(v => v.user == user);
+			const user_obj 	= Object.values(users_map.ips).find((user_obj) => user_obj.username === username);
 
 			let user_ip    	= user_obj?.ip;
 			if (!user_ip) user_ip = "";
 
 			let classname  	= 'user';
-			if (user_obj?.timestamp < now - config.ping_interval * 2 * 1000) {
+			if (user_obj?.timestamp < now - config.ping_interval * 2 * 1000 || !!users_map.usernames[username]) {
 				classname += ' idle';
 			} else if (user_obj) {
 				classname += ' online';
@@ -142,7 +144,7 @@ const requestListener = function (req, res) {
 				classname += ' first';
 			}
 
-			output        	+=`<div class="${classname}" title="${user_ip}">${user}</div>`;
+			output        	+=`<div class="${classname}" title="${user_ip}">${username}</div>`;
 
 			old_team       	= team;
 
@@ -187,7 +189,7 @@ try {
 		const users_map_json = fs.readFileSync(config.proctor_users_path, 'utf8');
 		users_map = JSON.parse(users_map_json);
 	} catch (err) {
-		// File does not exist yet, start with empty map
+		// File does not exist yet or is invalid, start with empty map
 	}
 
 	http.createServer(requestListener).listen(config.listen_port, config.listen_host, () => {});
