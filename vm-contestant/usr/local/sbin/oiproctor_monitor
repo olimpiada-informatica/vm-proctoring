@@ -29,10 +29,11 @@ function get_contest_user {
 
 function get_message {
 	ip="$(ip addr show "$IFACE" 2>/dev/null | awk '/inet / {print $2}' | cut -f1 -d'/')"
+	mac="$(cat /etc/oisetup/oiproctor_mac.installed)"
 	if test -n "$ip"; then
-		echo "$ip" | cut -d. -f3-
+		ip_suffix="$(echo "$ip" | cut -d. -f3-)"
+		echo "$mac $ip_suffix"
 	else
-		mac="$(cat /etc/oisetup/oiproctor_mac.installed)"
 		echo "$mac"
 	fi
 }

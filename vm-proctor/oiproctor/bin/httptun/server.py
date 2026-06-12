@@ -7,7 +7,6 @@ import threading
 import traceback
 import urllib.parse
 import binascii
-import json
 from queue import Queue, Empty
 
 from common import get_mac, BROADCAST, dequeue, parse_packets, serialize_packets
@@ -16,48 +15,51 @@ from wsgiserver import WSGIServer
 
 MYMAC = b'ter000'
 IP_PREFIX = (10, 9)
-VARRUNPATH = "/opt/oiproctor/run/connections"
-MAC_IP_MAPFILE = "/opt/oiproctor/run/mac_ip_map.json"
+PROCTOR_CONNECTIONS_PATH = "/opt/oiproctor/run/connections"
+PROCTOR_LOG_PATH = "/opt/oiproctor/log/httptun.log"
 
 ip_sequential = 2
 
 queue = dict()
 ips = dict()
 
-
-def load_mac_ip_map():
-    """Load the MAC-to-IP mapping from persistent storage"""
+def load_ips():
     global ips, ip_sequential
-    if os.path.exists(MAC_IP_MAPFILE):
+    if os.path.exists(PROCTOR_CONNECTIONS_PATH):
         try:
-            with open(MAC_IP_MAPFILE, "r") as f:
-                data = json.load(f)
-                ips = {binascii.unhexlify(k): bytes(v) for k, v in data.items()}
+            with open(PROCTOR_CONNECTIONS_PATH, "r") as f:  # Data is in hosts file format
+                ips = dict()
+                for line in f:
+                    line = line.strip()
+                    if line:  # Skip empty lines
+                        parts = line.split()
+                        if len(parts) >= 2:
+                            ip, mac = parts[0], parts[1]
+                            ips[binascii.unhexlify(mac)] = bytes(map(int, ip.split(".")))
                 # Find the highest ip_sequential used
                 for ip in ips.values():
-                    ip_int = (ip[2] << 8) + ip[3]
+                    ip_int = ip[2] * 256 + ip[3]
                     if ip_int >= ip_sequential:
                         ip_sequential = ip_int + 1
         except:
             traceback.print_exc()
 
-
-def save_mac_ip_map():
-    """Save the MAC-to-IP mapping to persistent storage"""
-    varrundir = os.path.dirname(MAC_IP_MAPFILE)
-    if not os.path.exists(varrundir):
-        os.makedirs(varrundir)
+def save_ips():
+    proctor_connections_dir = os.path.dirname(PROCTOR_CONNECTIONS_PATH)
+    if not os.path.exists(proctor_connections_dir):
+        os.makedirs(proctor_connections_dir)
     try:
-        with open(MAC_IP_MAPFILE, "w") as f:
-            data = {binascii.hexlify(k).decode('ascii'): list(v) for k, v in ips.items()}
-            json.dump(data, f)
+        with open(PROCTOR_CONNECTIONS_PATH, "w") as f:
+            file_content = ""
+            for mac, ip in ips.items():
+                file_content = ".".join(map(str, ip)) + " " + mac.hex() + "\n" + file_content # We write it in reverse order so newest entries are on top of older ones
+            f.write(file_content)  # Save in hosts file format
+
     except:
         traceback.print_exc()
 
-
 def init_queue(dest_mac):
     queue[dest_mac] = Queue()
-
 
 def put_in_queue(dest_mac, data):
     if dest_mac == BROADCAST:
@@ -69,20 +71,17 @@ def put_in_queue(dest_mac, data):
     queue[dest_mac].put(data)
     return True
 
-
 def get_from_queue(dest_mac):
     try:
         return dequeue(queue[dest_mac], timeout=2)
     except Empty:
         return None
 
-
 def read_data():
     while True:
         data = tap.read(2 * tap.mtu)
         dest_mac = get_mac(data)
         put_in_queue(dest_mac, data)
-
 
 def inner_application(env, start_response):
     global password
@@ -113,17 +112,10 @@ def inner_application(env, start_response):
                 ip_sequential += 1
                 init_queue(client_mac)
                 ips[client_mac] = ip
-                save_mac_ip_map()
+                save_ips()
 
-            f = open("/opt/oiproctor/log/httptun.log", "a")
-            f.write(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") + " " + org_mac + " -> " + binascii.hexlify(client_mac).decode('ascii') + " " + ".".join(map(str, ip)) + "\n")
-            f.close()
-
-            ips_text = ""
-            for k, v in ips.items():
-                ips_text = ".".join(map(str, v)) + " " + binascii.hexlify(k).decode('ascii') + "\n" + ips_text # We write it in reverse order so newest entries are on top of older ones
-            f = open(VARRUNPATH, "w")
-            f.write(ips_text)
+            f = open(PROCTOR_LOG_PATH, "a")
+            f.write(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") + " " + env['REMOTE_ADDR'] + " " + org_mac + " -> " + binascii.hexlify(client_mac).decode('ascii') + " " + ".".join(map(str, ip)) + "\n")
             f.close()
 
             start_response('200 OK', ip, [])
@@ -166,7 +158,6 @@ def inner_application(env, start_response):
         start_response('500', bytes(), [])
         return [b'Internal server error']
 
-
 def application(env, real_start_response):
     answer_status = 0
     info = bytes()
@@ -190,7 +181,6 @@ def application(env, real_start_response):
     print(log_line)
     return data
 
-
 def main():
     global tap, password
     if len(sys.argv) != 2:
@@ -198,7 +188,7 @@ def main():
         sys.exit(1)
     password = sys.argv[1]
 
-    load_mac_ip_map()  # Load existing mappings on startup
+    load_ips()
 
     tap = TunTapDevice(flags=IFF_TAP)
     tap.addr = ".".join(map(str, IP_PREFIX + (0, 1)))
@@ -208,13 +198,8 @@ def main():
     tap.up()
     tap_reader = threading.Thread(target=read_data, daemon=True)
     tap_reader.start()
-    varrundir = os.path.dirname(VARRUNPATH)
-    if not os.path.exists(varrundir):
-        os.makedirs(varrundir)
-    open(VARRUNPATH, "w").close()
     print('Serving on 8088...')
     WSGIServer(application, port=8088, numthreads=1000).start()
-
 
 if __name__ == '__main__':
     main()

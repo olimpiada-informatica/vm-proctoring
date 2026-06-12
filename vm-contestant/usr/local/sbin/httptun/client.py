@@ -1,24 +1,23 @@
 #!/usr/bin/env python3
 # Based on https://github.com/veluca93/httptun
 from __future__ import print_function
-
 import os
 import sys
 import threading
 import traceback
+import binascii
+import requests
 from io import BytesIO
 from queue import Queue
-import binascii
-
-import requests
 from common import get_mac, BROADCAST, dequeue, parse_packets, serialize_packets
 from pytun import TunTapDevice, IFF_TAP
-
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
+
+OIPROCTOR_MAC_PATH = "/etc/oisetup/oiproctor_mac.installed"
+
 requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 
 server_queue = Queue()
-
 
 def read_data():
     try:
@@ -69,7 +68,7 @@ def main():
             my_mac = data[:6]
             my_ip = data[6:10]
     else:
-        with open("/etc/oisetup/oiproctor_mac.installed", "r") as f:
+        with open(OIPROCTOR_MAC_PATH, "r") as f:
             my_mac_str = str(f.read(12))
             f.close()
         ans = session.post(server + '/connect', my_mac_str + " " + password)
@@ -83,7 +82,7 @@ def main():
 
     tap = TunTapDevice(flags=IFF_TAP)
     tap.addr = ".".join(map(str, my_ip))
-    print("My ip is:", tap.addr)
+    print("Connected (" + my_mac.hex() + ", " + tap.addr + ")")
     tap.netmask = '255.255.0.0'
     tap.mtu = 1300
     tap.hwaddr = my_mac
