@@ -1,7 +1,7 @@
 #!/bin/node
 
 const CONFIG_PATH   	= '/opt/oiproctor/etc/config';
-const MANDATORY_PARAMS  = [ 'listen_port', 'listen_host', 'cms_contest_shortname', 'proctor_connections_path', 'proctor_users_path', 'title', 'ping_interval', 'update_allowlist', 'cms_users' ];
+const MANDATORY_PARAMS  = [ 'listen_port', 'listen_host', 'cms_contest_shortname', 'proctor_connections_path', 'proctor_users_path', 'proctor_log_users_path', 'title', 'ping_interval', 'update_allowlist', 'cms_users' ];
 
 const http  	= require('http');
 const fs    	= require('fs');
@@ -12,9 +12,9 @@ var users_map   = { ips: {}, usernames: {}, };
 var cache   	= {};
 var alerts      = [];
 
-function date_formatted(date) {
+function date_formatted(date = new Date()) {
 
-	const now   	= date || new Date();
+	const now   	= typeof date === 'object' ? date : new Date(date);
 
 	const year  	= now.getFullYear();
 	const month 	= String(now.getMonth() + 1).padStart(2, '0');
@@ -24,6 +24,19 @@ function date_formatted(date) {
 	const seconds   = String(now.getSeconds()  ).padStart(2, '0');
 
 	return year + '-' + month + '-' + day + ' ' + hours + ':' + minutes + ':' + seconds;
+
+}
+
+function add_alert(ip, msg) {
+
+	alerts.push({ timestamp: Date.now(), ip: ip, message: msg });
+
+	const msg_text = [ date_formatted(), ip, msg, ].join('\t');
+	fs.appendFileSync(
+		config.proctor_log_users_path,
+		msg_text + '\n',
+	);
+	console.warn(msg_text);
 
 }
 
@@ -42,7 +55,7 @@ const requestListener = function (req, res) {
 
 		alerts.forEach(alert => {
 			if (since && since < alert.timestamp) return;
-			output += `<div><div class="timestamp">${alert.timestamp}</div><div class="user">${alert.ip}</div><div class="message">${alert.message}</div></div>`;
+			output += `<div><div class="timestamp">${date_formatted(alert.timestamp)}</div><div class="user">${alert.ip}</div><div class="message">${alert.message}</div></div>`;
 		});
 
 		output  += '</body></html>';
@@ -60,7 +73,7 @@ const requestListener = function (req, res) {
 
 		if (!ip.match(new RegExp(config.update_allowlist)) && !ip.match(new RegExp(config.update_whitelist))) return console.error(`Invalid source IP ${ip} trying to notiy ${msg}`);
 
-		alerts.push({ timestamp: Date.now(), ip: ip, message: msg });
+		add_alert(ip, msg);
 
 		res.write('{ "success": true }');
 
@@ -84,19 +97,22 @@ const requestListener = function (req, res) {
 			return;
 		}
 
+		const old_usernames_ip = users_map.usernames[username];
 		users_map.usernames[username] = ip;
 
-		const datetime      = date_formatted();
 		const old_username  = users_map.ips[ip]?.username;
-		let old_ip  	    = Object.keys(users_map.ips).find(k => users_map.ips[k].username == username);
+		let old_ips_ip  	    = Object.keys(users_map.ips).find(k => users_map.ips[k].username == username);
+		if (old_ips_ip) {
+			delete users_map.ips[old_ips_ip];
+		}
 
-		if (old_ip) delete users_map.ips[old_ip];
-
-		const info  	= datetime + '\t' + ip + '\t' + username;
-		let warning 	= '';
-		if (old_username && old_username != username) warning += '\t' + '<' + old_username;
-		if (old_ip) warning += (warning ? ',' : '\t') + '<' + old_ip;
-		console[warning ? 'warn' : 'log'](info + warning);
+		if (old_username && old_username != username) {
+			add_alert(ip, `Known IP switched user: ${old_username} > ${username}`);
+		}
+		if ((old_ips_ip ?? old_usernames_ip) !== ip) {
+			add_alert(ip, `Known user found in new IP: ${username} ${old_ips_ip ?? `${old_usernames_ip} (from previous oiproctor session)`} > ${ip}`);
+		}
+		console.log([ date_formatted(), ip, username, ].join('\t'));
 
 		users_map.ips[ip] = user_obj;
 
@@ -132,10 +148,10 @@ const requestListener = function (req, res) {
 			if (!user_ip) user_ip = "";
 
 			let classname  	= 'user';
-			if (user_obj?.timestamp < now - config.ping_interval * 2 * 1000 || !!users_map.usernames[username]) {
-				classname += ' idle';
-			} else if (user_obj) {
+			if (user_obj?.timestamp >= now - config.ping_interval * 2 * 1000) {
 				classname += ' online';
+			} else if (user_obj || !!users_map.usernames[username]) {
+				classname += ' idle';
 			} else {
 				classname += ' offline';
 			}
