@@ -17,7 +17,7 @@ cms_user=
 firefox_cookies_file="$(ls -dt "$firefox_profile_dir"/cookies.sqlite 2>/dev/null | head -1)"
 if test -z "$cms_user" -a -n "$firefox_cookies_file"; then
 	tempfile="$(mktemp -u)"
-	cms_user="$(cp -f "$firefox_cookies_file" "$tempfile" 2>/dev/null && cp -f "$firefox_cookies_file"-wal "$tempfile"-wal 2>/dev/null && sqlite3 "$tempfile" "SELECT * FROM moz_cookies;" | sed 's/^.*:weoi_login|//' | cut -d'|' -f1 | cut -d: -f2 | base64 -d 2>/dev/null | cut -d'"' -f2 && rm -f "$tempfile" "$tempfile"-wal 2>/dev/null)"
+	cms_user="$(cp -f "$firefox_cookies_file" "$tempfile" 2>/dev/null && cp -f "$firefox_cookies_file"-wal "$tempfile"-wal 2>/dev/null && sqlite3 "$tempfile" "SELECT * FROM moz_cookies;" | sed "s/^.*:${cms_contest_id}_login|//" | cut -d'|' -f1 | cut -d: -f2 | base64 -d 2>/dev/null | cut -d'"' -f2 && rm -f "$tempfile" "$tempfile"-wal 2>/dev/null)"
 fi
 
 # Attempt session cookie

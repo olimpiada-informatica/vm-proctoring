@@ -8,7 +8,7 @@ const fs    	= require('fs');
 const { exec }	= require("child_process");
 
 const config	= {};
-var users_map   = { ips: {}, usernames: {}, };
+var users_map   = {};
 var cache   	= {};
 var alerts      = [];
 
@@ -54,7 +54,7 @@ const requestListener = function (req, res) {
 		output  += '<style>.timestamp, .user, .message { display: inline-block; margin: 0 1em; }</style>';
 
 		alerts.forEach(alert => {
-			if (since && since < alert.timestamp) return;
+			if (since && alert.timestamp < since) return;
 			output += `<div><div class="timestamp">${date_formatted(alert.timestamp)}</div><div class="user">${alert.ip}</div><div class="message">${alert.message}</div></div>`;
 		});
 
@@ -90,36 +90,36 @@ const requestListener = function (req, res) {
 
 		if (!ip.match(new RegExp(config.update_allowlist)) && !ip.match(new RegExp(config.update_whitelist))) return console.error(`Invalid source IP ${ip} trying to register ${username}`);
 
-		const user_obj  = { username: username, ip: ip, timestamp: Date.now(), };
-
-		if (users_map.ips[ip]?.username === username) {
-			users_map.ips[ip] = user_obj;
+		if (users_map[ip]?.username === username) {
+			users_map[ip].timestamp = Date.now();
 			return;
 		}
 
-		const old_usernames_ip = users_map.usernames[username];
-		users_map.usernames[username] = ip;
+		const old_ip_username = users_map[ip]?.username;
+		const old_username_ip = Object.keys(users_map).find((ip) => users_map[ip].username == username);
 
-		const old_username  = users_map.ips[ip]?.username;
-		let old_ips_ip  	    = Object.keys(users_map.ips).find(k => users_map.ips[k].username == username);
-		if (old_ips_ip) {
-			delete users_map.ips[old_ips_ip];
+		if (old_ip_username != username) {
+			add_alert(ip, `Known IP switched user: ${old_ip_username} > ${username}`);
 		}
-
-		if (old_username && old_username != username) {
-			add_alert(ip, `Known IP switched user: ${old_username} > ${username}`);
-		}
-		if ((old_ips_ip ?? old_usernames_ip) !== ip) {
-			add_alert(ip, `Known user found in new IP: ${username} ${old_ips_ip ?? `${old_usernames_ip} (from previous oiproctor session)`} > ${ip}`);
+		if (old_username_ip !== ip) {
+			add_alert(ip, `Known user found in new IP: ${username} ${old_username_ip} > ${ip}`);
 		}
 		console.log([ date_formatted(), ip, username, ].join('\t'));
 
-		users_map.ips[ip] = user_obj;
+		const user_obj  = { username, ip, timestamp: Date.now(), };
+		users_map[ip] = user_obj;
+		if (old_username_ip !== ip) {
+			delete users_map[old_username_ip];
+		}
 
 		fs.writeFileSync(
 			config.proctor_users_path,
-			JSON.stringify(users_map),
-		);
+			Object.entries(users_map).reduce((acc, [ ip, user_obj ]) => {
+				const user = user_obj.username;
+				acc += ip + ' ' + username + '\n';
+				return acc;
+			}, ''),
+		); // Must be in hosts file format, as it is used by dnsmasq and oiproctor
 
 		exec('killall -s SIGHUP dnsmasq');
 
@@ -142,7 +142,7 @@ const requestListener = function (req, res) {
 
 			const team     	= username.substring(0, 2);
 
-			const user_obj 	= Object.values(users_map.ips).find((user_obj) => user_obj.username === username);
+			const user_obj 	= Object.values(users_map).find((user_obj) => user_obj.username === username);
 
 			let user_ip    	= user_obj?.ip;
 			if (!user_ip) user_ip = "";
@@ -150,7 +150,7 @@ const requestListener = function (req, res) {
 			let classname  	= 'user';
 			if (user_obj?.timestamp >= now - config.ping_interval * 2 * 1000) {
 				classname += ' online';
-			} else if (user_obj || !!users_map.usernames[username]) {
+			} else if (user_obj) {
 				classname += ' idle';
 			} else {
 				classname += ' offline';
@@ -188,9 +188,10 @@ try {
 	data.split('\n').forEach(line => {
 		line = line.trim();
 		if (line.startsWith('#') || !line) return;
-		const [ k, v ]  = line.split('=');
-		const param 	= k.toLowerCase().replace(/^users_monitor_/, '');
-		config[param]   = process.env[k] ?? (v.startsWith('"') && v.endsWith('"') ? v.substring(1, v.length - 1) : v);
+		const [ key, ...v ]  = line.split('=');
+		const value     = v.join();
+		const param 	= key.toLowerCase().replace(/^users_monitor_/, '');
+		config[param]   = process.env[key] ?? (value.startsWith('"') && value.endsWith('"') ? value.substring(1, value.length - 1) : value);
 	});
 	for (let k of MANDATORY_PARAMS) {
 		if (config[k] !== undefined) continue;
@@ -202,8 +203,17 @@ try {
 	for (let k of MANDATORY_PARAMS) if (!config[k]) return console.error(`Missing mandatory parameter ${k} in config file ${CONFIG_PATH}`);
 
 	try {
-		const users_map_json = fs.readFileSync(config.proctor_users_path, 'utf8');
-		users_map = JSON.parse(users_map_json);
+		const users_hosts_file = fs.readFileSync(config.proctor_users_path, 'utf8');
+		for (const rawLine of users_hosts_file.split(/\r?\n/)) {
+  			const line = rawLine.trim();
+  			if (!line || line.startsWith('#')) continue; // skip empty lines and comments
+  			const parts = line.split(/\s+/);
+  			if (parts.length !== 2) continue; // Invalid format
+  			const [ ip, username, ] = parts;
+  			if (users_map[ip]) continue; // If the username is assigned to multiple IPs, keep only the first one
+    			const user_obj = { username, ip, };
+    			users_map[ip] = user_obj;
+		}
 	} catch (err) {
 		// File does not exist yet or is invalid, start with empty map
 	}

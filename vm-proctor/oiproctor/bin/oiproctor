@@ -72,10 +72,10 @@ function resolve_to_hostname {
     main_hostname="$(dig +short -x "$req_ip" | rev | cut -c2- | rev)"
     echo -n "$main_hostname"
     test -z "$verbose" && echo "" && return
-    for line in $(cat "$alias_ips_path" "$PROCTOR_USERS_PATH" "$PROCTOR_CONNECTIONS_PATH" 2>/dev/null | tr ' ' '='); do
-        ans_ip="$(echo "$line" | cut -d= -f1)"
+    for line in $(cat "$alias_ips_path" "$PROCTOR_USERS_PATH" "$PROCTOR_CONNECTIONS_PATH" 2>/dev/null); do
+        ans_ip="$(echo "$line" | cut -d' ' -f1)"
         test "$ans_ip" != "$req_ip" && continue
-        hostname="$(echo "$line" | cut -d= -f2)"
+        hostname="$(echo "$line" | cut -d' ' -f2)"
         test "$hostname" != "$main_hostname" && echo -n " $hostname"
     done
     echo ""
@@ -186,6 +186,7 @@ case "$command" in
         grep -vE "^$ip\s|\s$alias\$" "$alias_ips_path" > "$alias_ips_path".tmp 2>/dev/null # Delete previous conflicting entries
         echo "$ip $alias" >> "$alias_ips_path".tmp
         mv "$alias_ips_path".tmp "$alias_ips_path"
+        ignore_ips="$(get_ignore_ips)"
         echo " $ignore_ips " | sed "s/ $ip //g" > "$ignore_ips_path" # Un-ignore the alias, since it has been reset
         ;;
 
@@ -300,14 +301,13 @@ case "$command" in
         ;;
 
     reset)
-        run_in_vm "$destination" sudo systemctl restart lightdm "2>&1" "||" fail "\"FAILED Cannot stop lightdm\""
+        run_in_vm "$destination" sudo clean_persistent_dir "2>&1" "||" fail "\"FAILED Cannot clean persistent dir" ";" sudo systemctl restart lightdm "2>&1" "||" fail "\"FAILED Cannot stop lightdm\""
         ;;
 
     diff)
         orig="/etc/guest-session/skel/"
         dest="/home/$VM_CONTESTANT_USER/"
         run_in_vm "$destination" sudo rsync -nrl "$dest" "$orig" --out-format=%n "|" grep -vxf "$VM_PROCTOR_DIFF_IGNORE_PATH"
-        echo run_in_vm "$destination" rsync -nrl "$dest" "$orig" --out-format=%n "|" grep -vxf "$VM_PROCTOR_DIFF_IGNORE_PATH"
         ;;
 
     cmd)

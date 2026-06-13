@@ -1,152 +1,153 @@
-(For English translation scroll further down)
+(For English translation scroll further down or [click here](#english))
 
-# Entorno
 
- - Estos scripts están configurados para ejecutarse en Xubuntu 24.04
- - Descargar la extensión oimoitor.xpi en /usr/lib/firefox-addons/distribution/extensions/
- - Para no mostrar las solicitudes de actualización del sistema, se recomienda ejecutar: `sudo bash -c 'echo "Hidden=true" >> /etc/xdg/autostart/update-notifier.desktop'`
- - Aplicaciones recomendadas: vim sublime-text idle3 clang code default-jdk geany firefox, más las extensiones ms-vscode.cpptools y ms-python.python de Code
+# Español
 
-# Configuración
+## Entorno
 
- - Añadir el logo en /etc/oisetup/logos/
- - Crear o editar el perfil en /etc/oisetup/profiles/ A continuación, un ejemplo de perfil:
+- Estos scripts están configurados para ejecutarse en Xubuntu 24.04
+- Descargar la extensión oimoitor.xpi en /usr/lib/firefox-addons/distribution/extensions/
+- Para no mostrar las solicitudes de actualización del sistema, se recomienda ejecutar: `sudo bash -c 'echo "Hidden=true" >> /etc/xdg/autostart/update-notifier.desktop'`
+- Aplicaciones recomendadas: vim sublime-text idle3 clang code default-jdk geany firefox, más las extensiones ms-vscode.cpptools y ms-python.python de Code
+
+## Configuración
+
+- Añadir el logo en /etc/oisetup/logos/
+- Crear o editar el perfil en /etc/oisetup/profiles/ A continuación, un ejemplo de perfil:
 ```
-  CONTEST_NAME="OIE"         # Nombre del concurso, puramente informativo
-  LOGO_PATH="oie.png"        # Debe ser un archivo PNG. El archivo debe estar ubicado en /etc/oisetup/logos/
-  AVAILABLE_LOCALES="ca_ES es_ES en_US en_GB" # Idiomas de interfaz disponibles
-  DEFAULT_LOCALE="ca_ES"     # Idioma predeterminado cuando el sistema se inicia
-  NATIVE_PROCTOR_SHADOW=     # Set the /etc/shadow password of the native proctor user (i.e. user 'oi'). You can obtain the shadowed password with  `openssl passwd -6 -salt <salt> <password>`
-  PROCTOR_TUNNEL_URL="https://proctor.olimpiada-informatica.org" # URL donde se encuentra el proctor. Debe dejarse vacío para desactivarlo
-  PROCTOR_TUNNEL_PASSWORD="" # Contraseña del túnel del proctor. Debe corresponderse con el archivo tunnel.pwd del servidor de vigilancia. Debe dejarse vacío para desactivar el túnel del proctor
-  PROCTOR_USER="oi"          # Este usuario debe existir previamente
-  PROCTOR_MONITOR=true       # Mostrar o no el final de la IP del túnel en la parte superior de la pantalla, y monitorizar el espacio de disco libre y la resolución de pantalla
-  PROCTOR_DIFF_IGNORE=""     # Lista de archivos a ignorar al hacer diff en el directrio home del concursante. Es una RegExp
-  GUEST_SESSION=true         # Habilitar sesión de invitado: todos los datos del concursante se eliminarán cuando cierren sesión
-  LOCK_MESSAGE="La sesión se iniciará automáticamente" # Mensaje a mostrar cuando la sesión está bloqueada por el adminstrador del concurso. También se puede configurar LOCK_TITLE, LOCK_WIDTH, LOCK_TYPE y LOCK_OPTIONS
-  DISABLE_SCREENLOCK=true    # Deshabilitar el bloqueo de pantalla, para que los usuarios no sean desconectados por inactividad. Muy recomendado si GUEST_SESSION está habilitado
-  CONTEST_URL="https://concurso.olimpiada-informatica.org"
-  PERSISTENT_STORAGE=true    # Crear un directorio en el directorio home del concursante donde puedan almacenar datos que no se eliminarán cuando cierren sesión
-  PERSISTENT_EXTERNAL=true   # Almacenar los datos persistentes en un USB conectado
-  PERSISTENT_DIRNAME="oie"   # Nombre del directorio de almacenamiento persistente en el home del concursante
-  BOOKMARKS=("aprende.olimpiada-informatica.org" "Manuales") # Lista de marcadores para añadir a Firefox, deben ingresarse como pares de URL + Nombre
-  BROWSER_EXTENSIONS="oimonitor"
-  STATIC_HOSTS="libs.olimpiada-informatica.org 10.0.10.16"  # Resolución estática de dominios, deben ingresarse como pares de dominio + IP
-  DNS_LOCKDOWN=true # Restringir o no el acceso a internet para que solo ciertas URLs estén disponibles (marcadores, sitio web del concurso, servidor del proctor, otros nombres de dominio o IPs en lista blanca)
-  DNS_LOCKDOWN_ALLOWLIST=""  # Lista de dominios o IPs explícitamente en lista blanca
-  DNS_LOCKDOWN_INTERFACE=""  # Restringir el acceso a internet solo en esta interfaz de red
-  APT_PACKAGES=""            # Paquetes APT adicionales para instalar
-  PIP_PACKAGES=""            # Paquetes PIP adicionales para instalar
+CONTEST_NAME="OIE"         # Nombre del concurso, puramente informativo
+LOGO_PATH="oie.png"        # Debe ser un archivo PNG. El archivo debe estar ubicado en /etc/oisetup/logos/
+AVAILABLE_LOCALES="ca_ES es_ES en_US en_GB" # Idiomas de interfaz disponibles
+DEFAULT_LOCALE="ca_ES"     # Idioma predeterminado cuando el sistema se inicia
+NATIVE_PROCTOR_SHADOW=     # Set the /etc/shadow password of the native proctor user (i.e. user 'oi'). You can obtain the shadowed password with  `openssl passwd -6 -salt <salt> <password>`
+PROCTOR_TUNNEL_URL="https://proctor.olimpiada-informatica.org" # URL donde se encuentra el proctor. Debe dejarse vacío para desactivarlo
+PROCTOR_TUNNEL_PASSWORD="" # Contraseña del túnel del proctor. Debe corresponderse con el archivo tunnel.pwd del servidor de vigilancia. Debe dejarse vacío para desactivar el túnel del proctor
+PROCTOR_USER="oi"          # Este usuario debe existir previamente
+PROCTOR_MONITOR=true       # Mostrar o no el final de la IP del túnel en la parte superior de la pantalla, y monitorizar el espacio de disco libre y la resolución de pantalla
+PROCTOR_DIFF_IGNORE=""     # Lista de archivos a ignorar al hacer diff en el directrio home del concursante. Es una RegExp
+GUEST_SESSION=true         # Habilitar sesión de invitado: todos los datos del concursante se eliminarán cuando cierren sesión
+LOCK_MESSAGE="La sesión se iniciará automáticamente" # Mensaje a mostrar cuando la sesión está bloqueada por el adminstrador del concurso. También se puede configurar LOCK_TITLE, LOCK_WIDTH, LOCK_TYPE y LOCK_OPTIONS
+DISABLE_SCREENLOCK=true    # Deshabilitar el bloqueo de pantalla, para que los usuarios no sean desconectados por inactividad. Muy recomendado si GUEST_SESSION está habilitado
+CONTEST_URL="https://concurso.olimpiada-informatica.org"
+PERSISTENT_STORAGE=true    # Crear un directorio en el directorio home del concursante donde puedan almacenar datos que no se eliminarán cuando cierren sesión
+PERSISTENT_EXTERNAL=true   # Almacenar los datos persistentes en un USB conectado
+PERSISTENT_DIRNAME="oie"   # Nombre del directorio de almacenamiento persistente en el home del concursante
+BOOKMARKS=("aprende.olimpiada-informatica.org" "Manuales") # Lista de marcadores para añadir a Firefox, deben ingresarse como pares de URL + Nombre
+BROWSER_EXTENSIONS="oimonitor"
+STATIC_HOSTS="libs.olimpiada-informatica.org 10.0.10.16"  # Resolución estática de dominios, deben ingresarse como pares de dominio + IP
+DNS_LOCKDOWN=true # Restringir o no el acceso a internet para que solo ciertas URLs estén disponibles (marcadores, sitio web del concurso, servidor del proctor, otros nombres de dominio o IPs en lista blanca)
+DNS_LOCKDOWN_ALLOWLIST=""  # Lista de dominios o IPs explícitamente en lista blanca
+DNS_LOCKDOWN_INTERFACE=""  # Restringir el acceso a internet solo en esta interfaz de red
+APT_PACKAGES=""            # Paquetes APT adicionales para instalar
+PIP_PACKAGES=""            # Paquetes PIP adicionales para instalar
 ```
+- Ejecutar: `sudo oisetup <perfil>`
+- Para refrescar el perfil durante el concurso, sin borrar datos del concursante, ejecutarlo sin parámetros: `sudo oisetup`
 
- - Ejecutar: `sudo oisetup <perfil>`
- - Para refrescar el perfil durante el concurso, sin borrar datos del concursante, ejecutarlo sin parámetros: `sudo oisetup`
-
-# Comandos
+## Comandos
 
 Gestión del acceso a la red:
- - `dns-lockdown start` Activa las restricciones de acceso a internet, solo los dominios/IPs en la lista blanca serán accesibles. Estos cambios tienen efecto inmediato, no se mantienen entre reinicios, no se mantienen después de `oisetup`
- - `dns-lockdown allow <domain|ip>...` Añade nuevos elementos a la lista blanca. Estos cambios tienen efecto inmediato, se mantienen entre reinicios, no se mantienen después de `oisetup`
- - `dns-lockdown block <domain|ip>...` Elimina elementos de la lista blanca. Estos cambios tienen efecto inmediato, se mantienen entre reinicios, no se mantienen después de `oisetup`
- - `dns-lockdown stop` Desactiva las restricciones de acceso a internet. Estos cambios tienen efecto inmediato, no se mantienen entre reinicios, no se mantienen después de `oisetup`
+- `dns-lockdown start` Activa las restricciones de acceso a internet, solo los dominios/IPs en la lista blanca serán accesibles. Estos cambios tienen efecto inmediato, no se mantienen entre reinicios, no se mantienen después de `oisetup`
+- `dns-lockdown allow <domain|ip>...` Añade nuevos elementos a la lista blanca. Estos cambios tienen efecto inmediato, se mantienen entre reinicios, no se mantienen después de `oisetup`
+- `dns-lockdown block <domain|ip>...` Elimina elementos de la lista blanca. Estos cambios tienen efecto inmediato, se mantienen entre reinicios, no se mantienen después de `oisetup`
+- `dns-lockdown stop` Desactiva las restricciones de acceso a internet. Estos cambios tienen efecto inmediato, no se mantienen entre reinicios, no se mantienen después de `oisetup`
 
 Gestión de /etc/hosts:
- - `static_hosts -r <domain|ip>` Obtiene entradas de /etc/hosts. Las IPs se añaden automáticamente a la lista blanca. Estos cambios tienen efecto inmediato, se mantienen entre reinicios, no se mantienen después de `oisetup`
- - `static_hosts -u <domain> <ip>` Añade entradas a /etc/hosts. Las IPs se añaden automáticamente a la lista blanca. Estos cambios tienen efecto inmediato, se mantienen entre reinicios, no se mantienen después de `oisetup`
- - `static_hosts -d <domain|ip>...` Elimina entradas de /etc/hosts. Si las IPs estaban en la lista blanca NO se eliminan, puedes eliminarlas con el comando `dns-lockdown block <ip>...`. Estos cambios tienen efecto inmediato, se mantienen entre reinicios, no se mantienen después de `oisetup`
- - `static_hosts -c` Elimina todas las entradas de oisetup de /etc/hosts. Si las IPs estaban en la lista blanca NO se eliminan, puedes eliminarla con el comando `dns-lockdown block <ip>...`. Estos cambios tienen efecto inmediato, se mantienen entre reinicios, no se mantienen después de `oisetup`
+- `static_hosts -r <domain|ip>` Obtiene entradas de /etc/hosts. Las IPs se añaden automáticamente a la lista blanca. Estos cambios tienen efecto inmediato, se mantienen entre reinicios, no se mantienen después de `oisetup`
+- `static_hosts -u <domain> <ip>` Añade entradas a /etc/hosts. Las IPs se añaden automáticamente a la lista blanca. Estos cambios tienen efecto inmediato, se mantienen entre reinicios, no se mantienen después de `oisetup`
+- `static_hosts -d <domain|ip>...` Elimina entradas de /etc/hosts. Si las IPs estaban en la lista blanca NO se eliminan, puedes eliminarlas con el comando `dns-lockdown block <ip>...`. Estos cambios tienen efecto inmediato, se mantienen entre reinicios, no se mantienen después de `oisetup`
+- `static_hosts -c` Elimina todas las entradas de oisetup de /etc/hosts. Si las IPs estaban en la lista blanca NO se eliminan, puedes eliminarla con el comando `dns-lockdown block <ip>...`. Estos cambios tienen efecto inmediato, se mantienen entre reinicios, no se mantienen después de `oisetup`
 
 Gestión de la sesión:
- - `clean_persistent_dir` Vacía el directorio persistente
- - `get_cms_user` Obtiene el usuario identificado en CMS
+- `clean_persistent_dir` Vacía el directorio persistente
+- `get_cms_user` Obtiene el usuario identificado en CMS
 
 Gestión del la máquina virtual:
- - `vm_version_print` Muestra la versión de la máquina virtual
- - `oisetup [profile]` Configura el sistema con las restricciones del perfil. Estos cambios tienen efecto inmediato, y se mantienen entre reinicios
- - `oisetup_config [-p <profile>] [-f] [-r <property]... [-u <property> <value>]... [-d <property]...` Muestra o actualiza la configuración de `oisetup`. Con el parámetro `-f` los cambios tienen efecto inmediato, se mantienen entre reinicios, se mantienen después de `oisetup`
+- `vm_version_print` Muestra la versión de la máquina virtual
+- `oisetup [profile]` Configura el sistema con las restricciones del perfil. Estos cambios tienen efecto inmediato, y se mantienen entre reinicios
+- `oisetup_config [-p <profile>] [-f] [-r <property]... [-u <property> <value>]... [-d <property]...` Muestra o actualiza la configuración de `oisetup`. Con el parámetro `-f` los cambios tienen efecto inmediato, se mantienen entre reinicios, se mantienen después de `oisetup`
 
 Utilidades de usuario:
- - `run <code> [inputfile]` Compila y ejecuta el código, y opcionalmente le pasa un archivo de entrada a la ejecución
+- `run <code> [inputfile]` Compila y ejecuta el código, y opcionalmente le pasa un archivo de entrada a la ejecución
 
-# Comentarios
+## Comentarios
 
- - Si se reinicia la máquina virtual y se está usando el proctor, se le asignará una nueva IP en el túnel a la máquina virtual
-
- - Es posible elevar privilegios a root desde el entorno de concursante ejecutando `su oi` y a continuación `sudo -s`
+- Si se reinicia la máquina virtual y se está usando el proctor, se le asignará una nueva IP en el túnel a la máquina virtual
+- Es posible elevar privilegios a root desde el entorno de concursante ejecutando `su oi` y a continuación `sudo -s`
 
 
 -----
 
 
-# Environment
+# English
 
- - These scripts are set up to run on Xubuntu 24.04
- - Download the extension oimoitor.xpi to /usr/lib/firefox-addons/distribution/extensions/
- - To avoid system update prompts, it is recommended to run: `sudo bash -c 'echo "Hidden=true" >> /etc/xdg/autostart/update-notifier.desktop'`
- - Recommended applications: vim sublime-text idle3 clang code default-jdk geany firefox, plus the Code extensions ms-vscode.cpptools and ms-python.python
+## Environment
 
-# Setup
+- These scripts are set up to run on Xubuntu 24.04
+- Download the extension oimoitor.xpi to /usr/lib/firefox-addons/distribution/extensions/
+- To avoid system update prompts, it is recommended to run: `sudo bash -c 'echo "Hidden=true" >> /etc/xdg/autostart/update-notifier.desktop'`
+- Recommended applications: vim sublime-text idle3 clang code default-jdk geany firefox, plus the Code extensions ms-vscode.cpptools and ms-python.python
 
- - Add the logo in /etc/oisetup/logos/
- - Create or edit the profile in /etc/oisetup/profiles/ Here is an example of a profile:
+## Setup
+
+- Add the logo in /etc/oisetup/logos/
+- Create or edit the profile in /etc/oisetup/profiles/ Here is an example of a profile:
 ```
-  CONTEST_NAME="OIE"         # Name of the contest, purely informational
-  LOGO_PATH="oie.png"        # It must be a PNG file. The file must be located in /etc/oisetup/logos/
-  AVAILABLE_LOCALES="ca_ES es_ES en_US en_GB" # Available interface languages
-  DEFAULT_LOCALE="ca_ES"     # Default languade when the system boots
-  PROCTOR_TUNNEL_URL="https://proctor.oinf.es" # URL where the proctor is located. Must be left empty to disable it
-  PROCTOR_TUNNEL_PASSWORD="" # Password of the proctor tunnel. Must march the contents of the file tunnel.pwd of the proctor server. Must be left empty to disable the proctor tunnel
-  PROCTOR_USER="oi"          # This user must already exist
-  PROCTOR_MONITOR=true       # Whether to display the ending of the tunnel IP at the top of the screen or not, and monitor available diskspace and screen resolution
-  PROCTOR_DIFF_IGNORE=""     # List of files to ignore when diff-ing the contestant's home directory. It is a RegExp
-  GUEST_SESSION=true         # Enable guest session: all contestant data will be removed when they log out
-  LOCK_MESSAGE="The session will start automatically" # Message to display when the session is locked by the contest administrator. You can also set up LOCK_TITLE, LOCK_WIDTH, LOCK_TYPE and LOCK_OPTIONS
-  DISABLE_SCREENLOCK=true    # Disable the screenlock, so users are not logged out for inactivity. Very much recommended if GUEST_SESSION is enabled
-  CONTEST_URL="https://concurso.olimpiada-informatica.org"
-  PERSISTENT_STORAGE=true    # Create a directory in the contestant's home directory where they can store data that will bot be deleted when they log out
-  PERSISTENT_EXTERNAL=true   # Store the persistent data in a plugged in USB
-  PERSISTENT_DIRNAME="oie"   # Name of the persistent storage directory in the contestant's home
-  BOOKMARKS=("aprende.olimpiada-informatica.org" "Manuales") # List of bookmarks to add to Firefox, they must be entered as pairs of URL + Name
-  BROWSER_EXTENSIONS="oimonitor"
-  STATIC_HOSTS="libs.olimpiada-informatica.org 10.0.10.16"  # Static resolution of domains, they must be entered as pairs of domain + IP
-  DNS_LOCKDOWN=true          # Whether to lock down internet access so only certain URLs are available (bookmarks, contest website, proctor server, other domains or IPs in the allowlist)
-  DNS_LOCKDOWN_ALLOWLIST=""  # List of allowed domains or IPs
-  DNS_LOCKDOWN_INTERFACE=""  # Lock internet access only on this network interface
-  APT_PACKAGES=""            # Additional APT packages to install
-  PIP_PACKAGES=""            # Additional PIP packages to install
+CONTEST_NAME="OIE"         # Name of the contest, purely informational
+LOGO_PATH="oie.png"        # It must be a PNG file. The file must be located in /etc/oisetup/logos/
+AVAILABLE_LOCALES="ca_ES es_ES en_US en_GB" # Available interface languages
+DEFAULT_LOCALE="ca_ES"     # Default languade when the system boots
+PROCTOR_TUNNEL_URL="https://proctor.oinf.es" # URL where the proctor is located. Must be left empty to disable it
+PROCTOR_TUNNEL_PASSWORD="" # Password of the proctor tunnel. Must march the contents of the file tunnel.pwd of the proctor server. Must be left empty to disable the proctor tunnel
+PROCTOR_USER="oi"          # This user must already exist
+PROCTOR_MONITOR=true       # Whether to display the ending of the tunnel IP at the top of the screen or not, and monitor available diskspace and screen resolution
+PROCTOR_DIFF_IGNORE=""     # List of files to ignore when diff-ing the contestant's home directory. It is a RegExp
+GUEST_SESSION=true         # Enable guest session: all contestant data will be removed when they log out
+LOCK_MESSAGE="The session will start automatically" # Message to display when the session is locked by the contest administrator. You can also set up LOCK_TITLE, LOCK_WIDTH, LOCK_TYPE and LOCK_OPTIONS
+DISABLE_SCREENLOCK=true    # Disable the screenlock, so users are not logged out for inactivity. Very much recommended if GUEST_SESSION is enabled
+CONTEST_URL="https://concurso.olimpiada-informatica.org"
+PERSISTENT_STORAGE=true    # Create a directory in the contestant's home directory where they can store data that will bot be deleted when they log out
+PERSISTENT_EXTERNAL=true   # Store the persistent data in a plugged in USB
+PERSISTENT_DIRNAME="oie"   # Name of the persistent storage directory in the contestant's home
+BOOKMARKS=("aprende.olimpiada-informatica.org" "Manuales") # List of bookmarks to add to Firefox, they must be entered as pairs of URL + Name
+BROWSER_EXTENSIONS="oimonitor"
+STATIC_HOSTS="libs.olimpiada-informatica.org 10.0.10.16"  # Static resolution of domains, they must be entered as pairs of domain + IP
+DNS_LOCKDOWN=true          # Whether to lock down internet access so only certain URLs are available (bookmarks, contest website, proctor server, other domains or IPs in the allowlist)
+DNS_LOCKDOWN_ALLOWLIST=""  # List of allowed domains or IPs
+DNS_LOCKDOWN_INTERFACE=""  # Lock internet access only on this network interface
+APT_PACKAGES=""            # Additional APT packages to install
+PIP_PACKAGES=""            # Additional PIP packages to install
 ```
+- Run: `sudo oisetup <perfil>`
+- To refresh the profile during the contest, without deleting contestant data, run it without parameters: `sudo oisetup`
 
- - Run: `sudo oisetup <perfil>`
- - To refresh the profile during the contest, without deleting contestant data, run it without parameters: `sudo oisetup`
-
-# Commands
+## Commands
 
 Network access management:
- - `dns-lockdown start` Activates internet access restrictions; only domains/IPs on the allowlist will be accessible. These changes take effect immediately, do not persist across reboots, and are not kept after `oisetup`
- - `dns-lockdown allow <domain|ip>...` Adds new items to the allowlist. These changes take effect immediately, persist across reboots, and are not kept after `oisetup`
- - `dns-lockdown block <domain|ip>...` Removes items from the allowlist. These changes take effect immediately, persist across reboots, and are not kept after `oisetup`
- - `dns-lockdown stop` Deactivates the internet access restrictions. These changes take effect immediately, do not persist across reboots, and are not kept after `oisetup`
+- `dns-lockdown start` Activates internet access restrictions; only domains/IPs on the allowlist will be accessible. These changes take effect immediately, do not persist across reboots, and are not kept after `oisetup`
+- `dns-lockdown allow <domain|ip>...` Adds new items to the allowlist. These changes take effect immediately, persist across reboots, and are not kept after `oisetup`
+- `dns-lockdown block <domain|ip>...` Removes items from the allowlist. These changes take effect immediately, persist across reboots, and are not kept after `oisetup`
+- `dns-lockdown stop` Deactivates the internet access restrictions. These changes take effect immediately, do not persist across reboots, and are not kept after `oisetup`
 
 Managing /etc/hosts:
- - `static_hosts -r <domain|ip>` Retrieves entries from /etc/hosts. The IPs are automatically added to the allowlist. These changes take effect immediately, persist across reboots, and are not kept after `oisetup`
- - `static_hosts -u <domain> <ip>` Adds entries to /etc/hosts. The IPs are automatically added to the allowlist. These changes take effect immediately, persist across reboots, and are not kept after `oisetup`
- - `static_hosts -d <domain|ip>...` Removes entries from /etc/hosts. If the IPs were on the allowlist THEY ARE NOT REMOVED; you can remove them with the `dns-lockdown block <ip>...` command. These changes take effect immediately, persist across reboots, and are not kept after `oisetup`
- - `static_hosts -c` Removes all oisetup entries from /etc/hosts. If the IPs were on the allowlist THEY ARE NOT REMOVED; you can remove them with the `dns-lockdown block <ip>...` command. These changes take effect immediately, persist across reboots, and are not kept after `oisetup`
+- `static_hosts -r <domain|ip>` Retrieves entries from /etc/hosts. The IPs are automatically added to the allowlist. These changes take effect immediately, persist across reboots, and are not kept after `oisetup`
+- `static_hosts -u <domain> <ip>` Adds entries to /etc/hosts. The IPs are automatically added to the allowlist. These changes take effect immediately, persist across reboots, and are not kept after `oisetup`
+- `static_hosts -d <domain|ip>...` Removes entries from /etc/hosts. If the IPs were on the allowlist THEY ARE NOT REMOVED; you can remove them with the `dns-lockdown block <ip>...` command. These changes take effect immediately, persist across reboots, and are not kept after `oisetup`
+- `static_hosts -c` Removes all oisetup entries from /etc/hosts. If the IPs were on the allowlist THEY ARE NOT REMOVED; you can remove them with the `dns-lockdown block <ip>...` command. These changes take effect immediately, persist across reboots, and are not kept after `oisetup`
 
 Session management:
- - `clean_persistent_dir` Empties the persistent directory
- - `get_cms_user` Retrieves the user identified in the CMS
+- `clean_persistent_dir` Empties the persistent directory
+- `get_cms_user` Retrieves the user identified in the CMS
 
 Management of the virtual machine:
- - `vm_version_print` Displays the version of the virtual machine
- - `oisetup [profile]` Configures the system with the restrictions of the profile
- - `oisetup_config [-p <profile>] [-f] [-r <property>... [-u <property> <value>]... [-d <property>...` Shows or updates the `oisetup` configuration. With the parameter `-f` these changes take effect immediately, persist across reboots, and persist after `oisetup`
+- `vm_version_print` Displays the version of the virtual machine
+- `oisetup [profile]` Configures the system with the restrictions of the profile
+- `oisetup_config [-p <profile>] [-f] [-r <property>... [-u <property> <value>]... [-d <property>...` Shows or updates the `oisetup` configuration. With the parameter `-f` these changes take effect immediately, persist across reboots, and persist after `oisetup`
 
 User utilities:
- - `run <code> [inputfile]` Compiles and runs the code, and optionally passes an input file to the execution
+- `run <code> [inputfile]` Compiles and runs the code, and optionally passes an input file to the execution
 
-# Comments
+## Comments
 
- - If the VM is rebooted and the proctor is in use, the VM will be given a new IP in the tunnel
-
- - It is possible to elevate privileges from the contestant environment by running `su oi` followed by `sudo -s`
+- If the VM is rebooted and the proctor is in use, the VM will be given a new IP in the tunnel
+- It is possible to elevate privileges from the contestant environment by running `su oi` followed by `sudo -s`

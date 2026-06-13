@@ -460,7 +460,7 @@ function enable_httptun {
 
         dns_lockdown_implicit_exceptions="$dns_lockdown_implicit_exceptions $(get_domain "$server")"
 
-        echo "$user" > "$CONF_PATH/proctor_user.installed"
+        echo "$user" > "$CONFIG_PATH/proctor_user.installed"
 
 }
 
@@ -472,7 +472,7 @@ function disable_httptun {
 
         rm -f /home/contestant
 
-        PROCTOR_USER_PATH="$CONF_PATH/proctor_user.installed"
+        PROCTOR_USER_PATH="$CONFIG_PATH/proctor_user.installed"
         if test -f "$PROCTOR_USER_PATH"; then
                 user="$(cat "$PROCTOR_USER_PATH")"
                 if test -n "$user"; then
@@ -486,7 +486,7 @@ function disable_httptun {
         systemctl stop httptun-keepalive >/dev/null
         systemctl stop httptun-launch >/dev/null
 
-        rm -f "$CONF_PATH/proctor_user.installed"
+        rm -f "$CONFIG_PATH/proctor_user.installed"
 
 }
 
@@ -598,13 +598,6 @@ function defragment_notice {
 
 }
 
-function store_vm_uuid {
-
-        echo "Storing VM UUID for reference"
-        get_vm_uuid > "$CONFIG_PATH/uuid.installed"
-
-}
-
 # Load settings
 . "$profile_path"
 
@@ -619,9 +612,9 @@ fi
 if test -n "$PROCTOR_TUNNEL_URL" -o -n "$PROCTOR_TUNNEL_PASSWORD"; then
         test -z "$PROCTOR_TUNNEL_URL" && echo "Invalid PROCTOR_TUNNEL_URL value in $profile_path: Cannot define a value in PROCTOR_TUNNEL_PASSWORD without a value in PROCTOR_TUNNEL_URL!" >&2 && exit 1
         test -z "$PROCTOR_TUNNEL_PASSWORD" && echo "Invalid PROCTOR_TUNNEL_PASSWORD value in $profile_path: Defining a value in PROCTOR_TUNNEL_PASSWORD is mandatory if PROCTOR_TUNNEL_URL is set!" >&2 && exit 1
-        test -n "$PROCTOR_TUNNEL_URL" -a ! "${PROCTOR_TUNNEL_URL:0:7}" != "https://" && echo "Invalid settings in $profile_path: PROCTOR_TUNNEL_URL must begin with https://!" >&2 && exit 1
+        test -n "$PROCTOR_TUNNEL_URL" -a "${PROCTOR_TUNNEL_URL:0:8}" != "https://" && echo "Invalid settings in $profile_path: PROCTOR_TUNNEL_URL must begin with https://!" >&2 && exit 1
         test -n "$PROCTOR_TUNNEL_URL" && test -z "$(get_domain "$PROCTOR_TUNNEL_URL")" && echo "Invalid PROCTOR_TUNNEL_URL value in $profile_path: $PROCTOR_TUNNEL_URL is not a valid URL!" >&2 && exit 1
-        test -n "$PROCTOR_USER" -a ! -d "/home/$PROCTOR_USER" && echo "$Invalid PROCTOR_USER value in $profile_path: $PROCTOR_USER is not a valid user!" >&2 && exit 1
+        test -n "$PROCTOR_USER" -a ! -d "/home/$PROCTOR_USER" && echo "Invalid PROCTOR_USER value in $profile_path: $PROCTOR_USER is not a valid user!" >&2 && exit 1
         ! test -f "/home/${PROCTOR_USER:-$NATIVE_PROCTOR_USER}/.ssh/authorized_keys" && echo "User ${PROCTOR_USER:-$NATIVE_PROCTOR_USER} has no \$HOME/.ssh/authorized_keys file!" >&2 && exit 1
 fi
 
@@ -660,7 +653,7 @@ firefox_settings "$CONTEST_URL" "$CONTEST_NAME" "${BROWSER_EXTENSIONS[*]}" "${BO
 
 if is_enabled "$LOGO_PATH"; then set_logo "$LOGO_PATH"; else remove_logo; fi
 
-set_lock_message "$CONTEST_NAME" "$LOCK_MESSAGE_BODY" "$LOCK_MESSAGE_TITLE" "$LOCK_MESSAGE_WIDTH" "$LOCK_MESSAGE_TYPE" "$LOCK_MESSAGE_OPTIONS"
+set_lock_message "${LOCK_MESSAGE_TITLE:-$CONTEST_NAME}" "$LOCK_MESSAGE_BODY" "$LOCK_MESSAGE_WIDTH" "$LOCK_MESSAGE_TYPE" "$LOCK_MESSAGE_OPTIONS"
 
 if is_enabled "$PROCTOR_TUNNEL_URL"; then enable_httptun "$PROCTOR_TUNNEL_URL" "$PROCTOR_TUNNEL_PASSWORD" "$PROCTOR_USER" "$PROCTOR_MONITOR" "$PROCTOR_DIFF_IGNORE"; else disable_httptun; fi
 

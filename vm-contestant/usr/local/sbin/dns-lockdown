@@ -24,7 +24,7 @@ start() {
 	test -z "$ENABLED" -o "$ENABLED" = 0 -o "$ENABLED" = false -o "$ENABLED" = No -o "$ENABLED" = NO && exit 0
 
 	# Block all traffic by default
-    iptables -P INPUT   DROP
+	iptables -P INPUT   DROP
 	iptables -P FORWARD DROP
 	iptables -P OUTPUT  DROP
 
@@ -64,6 +64,8 @@ start() {
 	iptables -A INPUT  -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
 	iptables -A OUTPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
 
+	resolvectl flush-caches # Clear the DNS cache so IPs are requested again and detected by dns-lockdown-monitor to accept them when necessary
+
 }
 
 allow() {
@@ -77,7 +79,7 @@ allow() {
 	done | cat - "$CONFIG_PATH/ips.allowlist" | sort | uniq | sponge "$CONFIG_PATH/ips.allowlist"
 
 	stop
-	start
+	start # Also clears the DNS cache
 
 }
 
@@ -85,16 +87,16 @@ block() {
 
 	for item in $@; do
 		echo "$item" | grep -qvE '^[0-9.]+$' || continue
-		sed "s/^$item\$//" -i "$CONFIG_PATH/domains.allowlist"
+		sed "/^$item\$/d" -i "$CONFIG_PATH/domains.allowlist"
 	done
 
 	for item in $@; do
 		echo "$item" | grep -qE '^[0-9.]+$' || continue
-		sed "s/^$(echo $item | idn --no-tld)\$//" -i "$CONFIG_PATH/ips.allowlist"
+		sed "/^$(echo $item | idn --no-tld)\$/d" -i "$CONFIG_PATH/ips.allowlist"
 	done
 
 	stop
-	start
+	start # Also clears the DNS cache
 
 }
 

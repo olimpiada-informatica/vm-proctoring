@@ -63,6 +63,7 @@ while true; do
 	new_user="$(get_user)"
 	new_contest_user="$(get_contest_user)"
 	new_screen_size="$(screen_size)"
+	new_timestamp="$(date +%s)"
 	if test "$new_message" != "$last_message" || test -n "$last_pid" -a ! -d /proc/"${last_pid:-0}" || test -n "$new_user" -a "$new_user" != "$last_user" || test $(($new_timestamp - $OSD_FORCE_REFRESH)) -gt ${last_timestamp:-0}; then
 		test -n "$last_pid" && killall -9 osd_cat 2>/dev/null
 		last_pid="$(osd "$new_user" "$new_message")"
