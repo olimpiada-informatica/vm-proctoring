@@ -646,10 +646,11 @@ test -n "$BOOKMARKS" && for ((i = 0; i < ${#BOOKMARKS[@]}; i += 2)); do test -z 
 
 test -n "$DNS_LOCKDOWN_ALLOWLIST" -o -n "$DNS_LOCKDOWN_WHITELIST" && for domain in $DNS_LOCKDOWN_ALLOWLIST $DNS_LOCKDOWN_WHITELIST; do test -z "$(get_domain "$domain")" && echo "Invalid DNS_LOCKDOWN_ALLOWLIST value in $profile_path: $domain is not a valid domain or IP!" >&2 && exit 1; done
 
-install_repo
-
 # We need to disable the lockdown as some settings might require internet access
 dns-lockdown stop
+
+# Update and install the proctoring files
+install_repo
 
 # Perform settings
 echo "Contest: $CONTEST_NAME"
