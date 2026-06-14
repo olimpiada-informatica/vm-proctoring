@@ -1,7 +1,7 @@
 services:
   oiproctor:
     build:
-      context: ./oiproctor
+      context: .
       args:
         NAME_SERVER: ${NAME_SERVER:-8.8.8.8}
         CONTESTANTS_CIDR: ${CONTESTANTS_CIDR:-all}
