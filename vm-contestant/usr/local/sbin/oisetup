@@ -120,7 +120,7 @@ function get_domain {
 
 function install_repo {
 	
-	test -z "$gitpull" && echo "Updating from repo..." && git pull "$REPO_PATH"
+	test -z "$gitpull" && echo "Updating from repo..." && git -C "$REPO_PATH" pull
 
 	echo "Deleting proctor server repo files..."
 	rm -rf "$REPO_PATH/vm-proctor" 2>/dev/null
