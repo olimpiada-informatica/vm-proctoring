@@ -115,7 +115,7 @@ const requestListener = function (req, res) {
 		fs.writeFileSync(
 			config.proctor_users_path,
 			Object.entries(users_map).reduce((acc, [ ip, user_obj ]) => {
-				const user = user_obj.username;
+				const username = user_obj.username;
 				acc += ip + ' ' + username + '\n';
 				return acc;
 			}, ''),

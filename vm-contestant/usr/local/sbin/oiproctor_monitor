@@ -38,7 +38,7 @@ function get_message {
 		test "$mac_etc" != "$mac_tunnel" && echo -n "$mac_etc <> "
 		echo "$mac_tunnel $ip_suffix"
 	else
-		echo "$mac"
+		echo "$mac_etc"
 	fi
 }
 
