@@ -7,6 +7,8 @@ import threading
 import traceback
 import urllib.parse
 import binascii
+import signal
+import json
 from queue import Queue, Empty
 
 from common import get_mac, BROADCAST, dequeue, parse_packets, serialize_packets
@@ -17,11 +19,27 @@ MYMAC = b'ter000'
 IP_PREFIX = (10, 9)
 PROCTOR_CONNECTIONS_PATH = "/opt/oiproctor/run/connections"
 PROCTOR_LOG_PATH = "/opt/oiproctor/log/httptun.log"
+PROCTOR_CONFIG_PATH = "/opt/oiproctor/etc/httptun"
 
 ip_sequential = 2
 
 queue = dict()
 ips = dict()
+config = {
+    'allow_new_connections': True,
+    'allow_new_devices': True,
+}
+
+def load_config():
+    global config
+    if os.path.exists(PROCTOR_CONFIG_PATH):
+        try:
+            with open(PROCTOR_CONFIG_PATH) as f:
+                config = json.load(f)
+        except:
+            traceback.print_exc()
+
+signal.signal(signal.SIGHUP, load_config)
 
 def load_ips():
     global ips, ip_sequential
@@ -84,9 +102,13 @@ def read_data():
         put_in_queue(dest_mac, data)
 
 def inner_application(env, start_response):
-    global password
+    global password, config
     try:
         if env['PATH_INFO'] == '/connect':
+            if 'allow_new_connections' in config and config['allow_new_connections'] == False:
+                start_response('403 Forbidden', bytes(), [])
+                return [b""]
+
             msg = env['wsgi.input'].read().decode()
             org_mac = msg.split(" ", 1)[0]
             if msg.split(" ", 1)[1] != password:
@@ -105,6 +127,10 @@ def inner_application(env, start_response):
                 if client_mac not in queue:
                     init_queue(client_mac)
             else:
+                if 'allow_new_devices' in config and config['allow_new_devices'] == False:
+                    start_response('403 Forbidden', bytes(), [])
+                    return [b""]
+
                 global ip_sequential
                 ip = bytes(
                     bytearray(IP_PREFIX) + bytearray((ip_sequential // 256,
@@ -188,6 +214,7 @@ def main():
         sys.exit(1)
     password = sys.argv[1]
 
+    load_config()
     load_ips()
 
     tap = TunTapDevice(flags=IFF_TAP)

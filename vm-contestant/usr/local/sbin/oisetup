@@ -15,6 +15,7 @@ NATIVE_DNS_LOCKDOWN="edgecastcdn.net root-servers.net cdn.mozilla.net services.m
 NATIVE_DNS_LOCKDOWN_INTERFACE="en+"
 IGNORE_SYSTEM_CHECKS=
 PERSISTENT_STORAGE_PATH="/var/guest-data"
+REPO_PATH="/opt/vm-proctoring"
 
 # Global variables
 profile_path=""
@@ -66,6 +67,9 @@ for param in $@; do
                 -d | --defragment)
                         param_defrag="true"
                         ;;
+                -g | --gitpull)
+                        param_gitpull="true"
+                        ;;
                 -*)
                         param_error="true"
                         ;;
@@ -78,7 +82,7 @@ done
 
 if is_enabled "$param_help" || is_enabled "$param_error"; then
         is_enabled "$param_error" && echo "Invalid arguments!"
-        echo -e "Usage: $(basename "$0") [profile] [options]...\nAvailable profiles:\n\t$(for file in "$PROFILES_PATH"/*; do test -L "$file" || basename "$(echo "$file")"; done | sort | xargs)\nProfiles are located in:\n\t$PROFILES_PATH\nOptions:\n\t-d --defragment\tDefragment the disk (so it can later be compacted and compressed for distribution)\n\t-r --refresh\tOnly refresh the profile, keep persistent data\n\t-h --help\tDisplay this help message"
+        echo -e "Usage: $(basename "$0") [profile] [options]...\nAvailable profiles:\n\t$(for file in "$PROFILES_PATH"/*; do test -L "$file" || basename "$(echo "$file")"; done | sort | xargs)\nProfiles are located in:\n\t$PROFILES_PATH\nOptions:\n\t-d --defragment\tDefragment the disk (so it can later be compacted and compressed for distribution)\n\t-r --refresh\tOnly refresh the profile, keep persistent data\n\t-g --gitpull\tUpdate from git repo before installing\n\t-h --help\tDisplay this help message"
         exit ${param_error:+1}
 fi
 
@@ -111,6 +115,18 @@ function get_domain {
         for url in $@;  do
                 echo "$url" | sed -nE 's/^([a-z]+:\/\/)?([^ /?#]+)(:[0-9]+)?([\/?#].*)?$/\2/p'
         done
+
+}
+
+function install_repo {
+	
+	test -z "$gitpull" && echo "Updating from repo..." && git pull "$REPO_PATH"
+
+	echo "Deleting proctor server repo files..."
+	rm -rf "$REPO_PATH/vm-proctor" 2>/dev/null
+
+	echo "Installing repo files..."
+	"$REPO_PATH/vm-contestant/install.sh"
 
 }
 
@@ -628,6 +644,8 @@ test -n "$DEFAULT_LOCALE" && ! echo " $AVAILABLE_LOCALES $NATIVE_LOCALE " | grep
 test -n "$BOOKMARKS" && for ((i = 0; i < ${#BOOKMARKS[@]}; i += 2)); do test -z "$(get_domain "${BOOKMARKS[i]}")" && echo "Invalid BOOKMARKS value in $profile_path: ${BOOKMARKS[i]} is not a valid URL!" >&2 && exit 1; done
 
 test -n "$DNS_LOCKDOWN_ALLOWLIST" -o -n "$DNS_LOCKDOWN_WHITELIST" && for domain in $DNS_LOCKDOWN_ALLOWLIST $DNS_LOCKDOWN_WHITELIST; do test -z "$(get_domain "$domain")" && echo "Invalid DNS_LOCKDOWN_ALLOWLIST value in $profile_path: $domain is not a valid domain or IP!" >&2 && exit 1; done
+
+install_repo
 
 # We need to disable the lockdown as some settings might require internet access
 dns-lockdown stop

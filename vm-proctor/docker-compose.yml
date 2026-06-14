@@ -5,6 +5,7 @@ services:
       context: ./oiproctor
       args:
         NAME_SERVER: ${NAME_SERVER:-8.8.8.8}
+        CONTESTANTS_CIDR: ${CONTESTANTS_CIDR:-all}
     restart: on-failure
     privileged: true
     ports:

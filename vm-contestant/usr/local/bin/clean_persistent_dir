@@ -1,0 +1,3 @@
+#!/bin/bash
+
+find /var/guest-data/ -name guest-data -o -prune -exec rm -rf -- {} +

@@ -6,7 +6,7 @@ MAC_PATH="$CONFIG_PATH/oiproctor_mac.installed"
 function is_invalid_mac() {
 	mac="$1"
 	test -z "$mac" -o "$mac" = "ffffffffffff" -o "$mac" = "FFFFFFFFFFFF" -o "$mac" = "000000000000" && return 0
-	echo "$mac" | grep -viqe '^[0-9a-f][02468ace][0-9a-f]{10}$' && return 0 # Second hex digit must be even on unicast mac addresses
+	echo "$mac" | grep -viqE '^[0-9a-f][02468ace][0-9a-f]{10}$' && return 0 # Second hex digit must be even on unicast mac addresses
 	return 1
 }
 

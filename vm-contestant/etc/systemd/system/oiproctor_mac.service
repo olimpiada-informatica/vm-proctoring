@@ -1,5 +1,5 @@
 [Unit]
-Description=Random OI Proctor MAC
+Description=OI Proctor random MAC
 [Service]
 Type=oneshot
 ExecStart=/usr/local/sbin/oiproctor_mac

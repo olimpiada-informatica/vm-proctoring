@@ -1,0 +1,2 @@
+#!/bin/bash
+dmidecode --type system | grep 'UUID:' | sed -E 's/.*UUID: *([0-9a-f-]+).*/\1/'

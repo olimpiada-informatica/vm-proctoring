@@ -2,6 +2,7 @@
 
 PROCTOR_SERVER_PATH="/opt/oiproctor/bin/httptun/server.py"
 PROCTOR_TUNNEL_PASS_PATH="/opt/oiproctor/etc/tunnel.pwd"
+PROCTOR_CONFIG_PATH="/opt/oiproctor/etc/httptun"
 PROCTOR_LOG_HTTPTUN_PATH="/opt/oiproctor/log/httptun.log"
 PROCTOR_CONNECTIONS_PATH="/opt/oiproctor/run/connections"
 PROCTOR_ALIAS_PATH="/opt/oiproctor/run/alias"

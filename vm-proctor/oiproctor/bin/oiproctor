@@ -123,8 +123,8 @@ function get_all_destinations_resolved {
     done
 }
 
-ignore_ips_path="$PROCTOR_CONNECTIONS_PATH"_"$(get_daemon_pid)".ignore_ips
-alias_ips_path="$PROCTOR_CONNECTIONS_PATH"_"$(get_daemon_pid)".alias_ips
+ignore_ips_path="$PROCTOR_CONNECTIONS_PATH".ignore_ips
+alias_ips_path="$PROCTOR_CONNECTIONS_PATH".alias_ips
 
 if test -f "$alias_ips_path" && test "$(readlink "$PROCTOR_ALIAS_PATH")" != "$alias_ips_path"; then
     ln -sf "$alias_ips_path" "$PROCTOR_ALIAS_PATH" 2>/dev/null || echo "Warning: Aliases file has not yet been created for this instance, run `sudo $(basename "$0")` once to create it."
@@ -152,6 +152,15 @@ case "$command" in
     status)
         pid="$(get_daemon_pid)"
         test -z "$pid" && echo "Not running" || echo "Running. PID $pid"
+        ;;
+
+    letnew)
+	value="true"
+        test "$1" = "false" -o "$1" = "no" && value="false"
+        test -f "$PROCTOR_CONFIG_PATH" || echo '{}' > "$PROCTOR_CONFIG_PATH"
+        json="$(jq ".allow_new_devices=$value" "$PROCTOR_CONFIG_PATH")" && echo -E "$json" > "$PROCTOR_CONFIG_PATH"
+        pid="$(get_daemon_pid)"
+        kill -HUP "$pid"
         ;;
 
     log)
@@ -328,6 +337,7 @@ Available commands:
     daemon:  Starts the proctor server in background through systemd
     stop:    Stops the running proctor server (only affects the proctor server of the same contest, in case several contests were running simoultaneously)
     status:  Checks if the proctor server for this contest is running
+    letnew:  Allows/disallows new devices from connecting to the tunnel
     log:     Displays the history of all vm connections (timestamp + MAC + IP) of all proctor servers
     active:  Lists all connected vms
     ignore:  Mark an IP or alias from the active list to be ignored (for old and reconnected clients)

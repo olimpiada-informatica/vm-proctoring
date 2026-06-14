@@ -1,0 +1,81 @@
+#!/bin/bash
+
+# Setup
+CONFIG_PATH="/etc/oisetup"
+PROFILES_PATH="$CONFIG_PATH/profiles"
+NATIVE_PROFILE="default"
+
+apply=
+reads=()
+updates=()
+values=()
+deletes=()
+while test $# -gt 0; do
+    case $1 in
+        -h|--help)
+            echo "Usage: $(basename "$0") [-p <profile>] [-f] [-r <property]... [-u <property> <value>]... [-d <property]..."
+            echo "  Reads/updates properties in an oisetup profile"
+            echo "  -p Defines which profile to use. Otherwise, the default profile"
+            echo "  -f Applies the profiles, after any changes"
+            echo "  -r Reads the property from the profile, before any changes"
+            echo "  -u Updates the property in the profile"
+            echo "  -d Deletes the property from the profile, after any changes"
+            exit 0
+            ;;
+        -p)
+            profile="$2"
+            shift
+            ;;
+        -f)
+            apply=true
+            ;;
+        -r)
+            reads+=("$2")
+            shift
+            ;;
+        -u)
+            updates+=("$2")
+            values+=("$3")
+            shift 2
+            ;;
+        -d)
+            deletes+=("$2")
+            shift
+            ;;
+        *) 
+            echo "Unknown parameter: $1"
+            exit 1
+            ;;
+    esac
+    shift
+done
+
+test -z "$profile" && profile="$(basename "$(readlink "$PROFILES_PATH/$NATIVE_PROFILE")")"
+
+profile_path="$PROFILES_PATH/${profile:-default}"
+! test -f "$profile_path" && echo "Profile $profile does not exist" >&2 && exit 1
+
+for ((i = 0; i < ${#reads[@]}; i += 1)); do
+    property="${reads[$i]}"
+    grep "^$property=" "$profile_path"
+done
+
+if test ${#updates[@]} -gt 0 -o ${#deletes[@]} -gt 0; then
+    tmp_path="$(mktemp)"
+    cp -f "$profile_path" "$tmp_path"
+
+    for ((i = 0; i < ${#updates[@]}; i += 1)); do
+        property="${updates[$i]}"
+        value="${values[$i]}"
+        sed "s/^\($property\)=.*/\1=\"$value\"/" -i "$tmp_path"
+    done
+
+    for ((i = 0; i < ${#deletes[@]}; i += 1)); do
+        property="${deletes[$i]}"
+        sed "/^\($property\)=/d" -i "$tmp_path"
+    done
+
+    mv -f "$tmp_path" "$profile_path"
+fi
+
+test -n "$apply" && oisetup "$profile"
