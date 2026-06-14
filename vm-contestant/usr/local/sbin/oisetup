@@ -479,6 +479,13 @@ function enable_httptun {
 
         echo "$user" > "$CONFIG_PATH/proctor_user.installed"
 
+        systemctl enable oiproctor_mac >/dev/null
+        systemctl restart oiproctor_mac >/dev/null
+        systemctl enable httptun-keepalive >/dev/null
+        systemctl restart httptun-keepalive >/dev/null
+        systemctl enable httptun-launch >/dev/null
+        systemctl restart httptun-launch >/dev/null
+
 }
 
 function disable_httptun {
@@ -501,7 +508,11 @@ function disable_httptun {
         echo "ENABLED=0" > /etc/httptun
 
         systemctl stop httptun-keepalive >/dev/null
+        systemctl disable httptun-keepalive >/dev/null
         systemctl stop httptun-launch >/dev/null
+        systemctl disable httptun-launch >/dev/null
+        systemctl stop oiproctor_mac >/dev/null
+        systemctl disable oiproctor_mac >/dev/null
 
         rm -f "$CONFIG_PATH/proctor_user.installed"
 

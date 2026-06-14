@@ -11,7 +11,6 @@ Contestant laptop
  └── VirtualBox / VMware / etc.
       └── Xubuntu 24.04 VM (vm-contestant scripts)
            ├── Firefox (contestant works here)
-           │    └── oimonitor.xpi (browser extension, reports CMS login)
            ├── dns-lockdown (iptables firewall)
            ├── httptun client (TAP tunnel to OI Proctor over HTTPS)
            └── oiproctor_monitor (status OSD, loop reporting to OI Proctor via TAP tunnel)
