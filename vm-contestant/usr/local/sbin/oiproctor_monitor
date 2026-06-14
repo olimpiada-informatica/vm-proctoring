@@ -9,6 +9,8 @@ DISK_LIMIT="95"
 TARGET="10.9.0.1"
 OSD_FORCE_REFRESH=60
 CONFIG_PATH="/etc/oisetup"
+OIPROCTOR_MAC_PATH="/etc/oisetup/oiproctor_mac.installed"
+TUNNEL_CACHE_PATH="/tmp/tap0cache"
 
 function screen_size {
 	export XAUTHORITY=/home/contestant/.Xauthority
@@ -29,10 +31,12 @@ function get_contest_user {
 
 function get_message {
 	ip="$(ip addr show "$IFACE" 2>/dev/null | awk '/inet / {print $2}' | cut -f1 -d'/')"
-	mac="$(cat /etc/oisetup/oiproctor_mac.installed)"
+	mac_etc="$(cat "$OIPROCTOR_MAC_PATH")"
 	if test -n "$ip"; then
+		mac_tunnel="$(cat "$TUNNEL_CACHE_PATH" | head -c6 | hexdump -v -e '/1 "%02x"')"
 		ip_suffix="$(echo "$ip" | cut -d. -f3-)"
-		echo "$mac $ip_suffix"
+		test "$mac_etc" != "$mac_tunnel" && echo -n "$mac_etc <> "
+		echo "$mac_tunnel $ip_suffix"
 	else
 		echo "$mac"
 	fi
