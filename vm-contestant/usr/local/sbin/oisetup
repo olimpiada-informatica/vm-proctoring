@@ -26,6 +26,7 @@ dns_lockdown_implicit_exceptions=""
 param_profile=""
 param_defrag=""
 param_refresh=""
+param_gitpull=""
 param_help=""
 param_error=""
 
@@ -120,7 +121,7 @@ function get_domain {
 
 function install_repo {
 	
-	test -z "$gitpull" && echo "Updating from repo..." && git -C "$REPO_PATH" pull
+	test -n "$gitpull" && echo "Updating from repo..." && git -C "$REPO_PATH" pull
 
 	echo "Deleting proctor server repo files..."
 	rm -rf "$REPO_PATH/vm-proctor" 2>/dev/null
