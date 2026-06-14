@@ -10,7 +10,8 @@ services:
     privileged: true
     ports:
       #- 80
-      - 443
+      #- 443
+      - ${PORT_EXTERNAL:-443}:${PORT_INTERNAL:-443}
     volumes:
       - ./oiproctor/log:/opt/oiproctor/log:rw
       - ./oiproctor/run:/opt/oiproctor/run:rw
@@ -22,3 +23,5 @@ services:
       VM_DIALOG_TITLE: ${VM_DIALOG_TITLE:-}
       CMS_CONTEST_SHORTNAME: ${CMS_CONTEST_SHORTNAME:-}
       CMS_USERS: ${CMS_USERS:-}
+      PORT_EXTERNAL: ${PORT_EXTERNAL:-}
+      PORT_INTERNAL: ${PORT_INTERNAL:-}
