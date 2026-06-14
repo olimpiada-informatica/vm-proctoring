@@ -189,7 +189,7 @@ oiproctor letnew true
 - Walk the room continuously. Never stand still in one spot for more than 2 minutes.
 - Look at screens, not at contestants' faces. You are checking what is on the screen.
 - Anything other than the contest CMS and the allowed documentation in Firefox is a violation.
-- Anything other than the virtual machine in fullscreen mode is a violation. Easily recognize the virtual machine is in fullscreen mode because it displays the tunnel's MAC and last two bytes of its IP at the top of the screen.
+- Anything other than the virtual machine in fullscreen mode is a violation. Easily recognize the virtual machine is in fullscreen mode because it displays the tunnel's MAC and last two bytes of its IP at the top of the screen, report if anything else is displayed.
 - Any visible phone or other device not allowed at the desk is a violation, even if it appears to be unused.
 - If a contestant requests to leave (bathroom), one proctor must accompany them and ensure they do not access any devices (Wi-Fi/GSM/Bluetooth frequency detectors are encouraged).
 - Do not answer questions about contest problems. Say: "I cannot help with that, it is part of the contest."

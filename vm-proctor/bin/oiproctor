@@ -155,8 +155,9 @@ case "$command" in
         ;;
 
     letnew)
-	value="true"
-        test "$1" = "false" -o "$1" = "no" && value="false"
+        shift
+        value="true"
+        test "$1" = "false" -o "$1" = "no" -o "$1" = "off" && value="false"
         test -f "$PROCTOR_CONFIG_PATH" || echo '{}' > "$PROCTOR_CONFIG_PATH"
         json="$(jq ".allow_new_devices=$value" "$PROCTOR_CONFIG_PATH")" && echo -E "$json" > "$PROCTOR_CONFIG_PATH"
         pid="$(get_daemon_pid)"

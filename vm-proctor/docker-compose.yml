@@ -12,8 +12,8 @@ services:
       #- 443
       - ${PORT_EXTERNAL:-443}:${PORT_INTERNAL:-443}
     volumes:
-      - ./oiproctor/log:/opt/oiproctor/log:rw
-      - ./oiproctor/run:/opt/oiproctor/run:rw
+      - ./log:/opt/oiproctor/log:rw
+      - ./run:/opt/oiproctor/run:rw
     environment:
       TUNNEL_PASS: ${TUNNEL_PASS:-}
       VM_SSH_PASS: ${VM_SSH_PASS:-}

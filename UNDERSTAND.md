@@ -400,21 +400,21 @@ This table answers "does this change survive X?" — the most critical reference
 
 ### 7.2 On the Proctor Server
 
-| File                                | Purpose                        | Written by                | Used by                                |
-|-------------------------------------|--------------------------------|---------------------------|----------------------------------------|
-| `oiproctor/etc/config`              | Default config values          | IT staff                  | `oiproctor_users_monitor`, `oiproctor` |
-| `oiproctor/etc/httptun`             | httptun config values          | IT staff, `oiproctor`     | `httptun`                              |
-| `oiproctor/etc/tunnel.pwd`          | Tunnel shared password         | `oiproctor_init.sh`       | `httptun`                              |
-| `oiproctor/etc/vmkey.pwd`           | SSH private key for VM access  | `oiproctor_init.sh`       | SSH                                    |
-| `oiproctor/etc/proctor.pwd`         | Web terminal password          | `oiproctor_init.sh`       | shellinabox                            |
-| `oiproctor/etc/https/*.pem`         | TLS certificate + key          | IT staff                  | nginx                                  |
-| `oiproctor/run/connections`         | MAC→IP map (hosts format)      | `httptun/server.py`       | `httptun`, `oiproctor`                 |
-| `oiproctor/run/users`               | CMS user→IP map (hosts format) | `oiproctor_users_monitor` | `oiproctor_users_monitor`, `oiproctor` |
-| `oiproctor/run/alias`               | IP→alias map (hosts format)    | `oiproctor alias`         | `oiproctor`                            |
-| `oiproctor/log/httptun.log`         | Full connection history        | `server.py`               |                                        |
-| `oiproctor/log/oiproctor_users.log` | CMS user activity + alerts     | `oiproctor_users_monitor` |                                        |
-| `oiproctor/log/ssh/`                | SSH session transcripts        | `log-session`             |                                        |
-| `.env`                              | Build-time + runtime overrides | IT staff                  |                                        |
+| File                                | Purpose                        | Written by                | Used by                                     |
+|-------------------------------------|--------------------------------|---------------------------|---------------------------------------------|
+| `oiproctor/etc/config`              | Default config values          | IT staff                  | `oiproctor_users_monitor`, `oiproctor`      |
+| `oiproctor/etc/httptun`             | httptun config values          | IT staff, `oiproctor`     | `httptun`                                   |
+| `oiproctor/etc/tunnel.pwd`          | Tunnel shared password         | `oiproctor_init.sh`       | `httptun`                                   |
+| `oiproctor/etc/vmkey.pwd`           | SSH private key for VM access  | `oiproctor_init.sh`       | SSH                                         |
+| `oiproctor/etc/proctor.pwd`         | Web terminal password          | `oiproctor_init.sh`       | shellinabox                                 |
+| `oiproctor/etc/https/*.pem`         | TLS certificate + key          | IT staff                  | nginx                                       |
+| `oiproctor/run/connections`         | MAC→IP map (hosts format)      | `httptun/server.py`       | dns, `httptun`, `oiproctor`                 |
+| `oiproctor/run/users`               | CMS user→IP map (hosts format) | `oiproctor_users_monitor` | dns, `oiproctor_users_monitor`, `oiproctor` |
+| `oiproctor/run/alias`               | IP→alias map (hosts format)    | `oiproctor alias`         | `oiproctor`                                 |
+| `oiproctor/log/httptun.log`         | Full connection history        | `server.py`               |                                             |
+| `oiproctor/log/oiproctor_users.log` | CMS user activity + alerts     | `oiproctor_users_monitor` |                                             |
+| `oiproctor/log/ssh/`                | SSH session transcripts        | `log-session`             |                                             |
+| `.env`                              | Build-time + runtime overrides | IT staff                  |                                             |
 
 ---
 

@@ -39,7 +39,7 @@ def load_config():
         except:
             traceback.print_exc()
 
-signal.signal(signal.SIGHUP, load_config)
+signal.signal(signal.SIGHUP, lambda _1, _2: load_config())
 
 def load_ips():
     global ips, ip_sequential

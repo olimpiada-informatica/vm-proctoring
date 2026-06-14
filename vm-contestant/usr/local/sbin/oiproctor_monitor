@@ -33,7 +33,7 @@ function get_message {
 	ip="$(ip addr show "$IFACE" 2>/dev/null | awk '/inet / {print $2}' | cut -f1 -d'/')"
 	mac_etc="$(cat "$OIPROCTOR_MAC_PATH")"
 	if test -n "$ip"; then
-		mac_tunnel="$(cat "$TUNNEL_CACHE_PATH" | head -c6 | hexdump -v -e '/1 "%02x"')"
+		mac_tunnel="$(cat "$TUNNEL_CACHE_PATH" 2>/dev/null | head -c6 | hexdump -v -e '/1 "%02x"')"
 		ip_suffix="$(echo "$ip" | cut -d. -f3-)"
 		test "$mac_etc" != "$mac_tunnel" && echo -n "$mac_etc <> "
 		echo "$mac_tunnel $ip_suffix"
