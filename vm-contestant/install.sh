@@ -1,7 +1,18 @@
 #!/bin/bash
 
+# Functions (copied from oisetup)
+function error {
+        echo -e "$@" >&2
+        exit 1
+}
+
+# Context checks
+test "$EUID" -ne 0 && error "This script must be run as root!"
+
+# Commandline checks
 test "$1" = "-c" -o "$1" = "--copy" && copy="true"
 
+# Link/Copy files
 dir="$(dirname "$0")"
 for path in $(find "$dir" -type f); do
         pathdir="$(dirname "$path")"
@@ -17,4 +28,5 @@ for path in $(find "$dir" -type f); do
 	fi
 done
 
+# Reload systemd daemon to load the installed files
 systemctl daemon-reload

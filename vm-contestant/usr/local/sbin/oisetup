@@ -2,22 +2,27 @@
 
 # Setup
 CONFIG_PATH="/etc/oisetup"
-PROFILES_PATH="$CONFIG_PATH/profiles"
+OISETUP_PROFILES_PATH="$CONFIG_PATH/profiles"
 LOGOS_PATH="$CONFIG_PATH/logos"
-NATIVE_PROFILE="default"
-NATIVE_LOCALE="en_US"
-NATIVE_PERSISTENT_DIRNAME="oi"
-NATIVE_PROCTOR_USER="oi"
-NATIVE_PROCTOR_DIFF_IGNORE="\.profile \.skip-guest-warning-dialog \.xsessionrc \.cache/.* \.config/Code/ \.config/gtk-3\.0/ \.config/pulse/ \.config/Thunar/ \.config/user-dirs\.dirs \.config/user-dirs\.locale \.config/xfce4/.* \.config/xubuntu/ \.config/xubuntu/xdg-xubuntu-templates\.cfg \.gnupg/ \.ICEauthority \.local/ \.local/share/ \.vboxclient-clipboard\.pid \.vboxclient-display-svga-x11\.pid \.vboxclient-draganddrop\.pid \.vboxclient-seamless\.pid \.config/Code/User/settings\.json \.vscode/argv\.json \.vscode-cli/ \.vscode/extensions/.* \.config/Code/.* \.mozilla/firefox/.* \.Xauthority \.xsession-errors \.xsession-errors\.old Desktop/ Documents/ Downloads/ Music/ Pictures/ Public/ Templates/ Videos/ Descargas/ Documentos/ Escritorio/ Imágenes/ Música/ Plantillas/ Público/ Vídeos/"
-NATIVE_DNS_LOCKDOWN="edgecastcdn.net root-servers.net cdn.mozilla.net services.mozilla.com googleapis.com detectportal.firefox.com o.lencr.org spocs.getpockercom telemetry.mozilla.org ssl.gstatic.com ipv4only.arpa clients6.google.com dataops.mozgcp.net ocsp.digicert.com dscq.akamai.net l.google.com phicdn.net ocsp.pki.goog mozaws.net addons.mozilla.org cloudfront.net akamaiedge.net daisy.ubuntu.com in-addr.arpa ip6.arpa connectivity-check.ubuntu.com gstatic.com fonts.gstatic.com fonts.googleapis.com recaptcha.net www.recaptcha.net"
-NATIVE_DNS_LOCKDOWN_INTERFACE="en+"
-IGNORE_SYSTEM_CHECKS=
+DEFAULT_LOCALE="en_US"
+DEFAULT_OISETUP_PROFILE="default"
+DEFAULT_PROCTOR_USERNAME="oi"
+DEFAULT_PERSISTENT_DIRNAME="$DEFAULT_PROCTOR_USERNAME"
+DEFAULT_PROCTOR_DIFF_IGNORE="\.profile \.skip-guest-warning-dialog \.xsessionrc \.cache/.* \.config/Code/ \.config/gtk-3\.0/ \.config/pulse/ \.config/Thunar/ \.config/user-dirs\.dirs \.config/user-dirs\.locale \.config/xfce4/.* \.config/xubuntu/ \.config/xubuntu/xdg-xubuntu-templates\.cfg \.gnupg/ \.ICEauthority \.local/ \.local/share/ \.vboxclient-clipboard\.pid \.vboxclient-display-svga-x11\.pid \.vboxclient-draganddrop\.pid \.vboxclient-seamless\.pid \.config/Code/User/settings\.json \.vscode/argv\.json \.vscode-cli/ \.vscode/extensions/.* \.config/Code/.* \.mozilla/firefox/.* \.Xauthority \.xsession-errors \.xsession-errors\.old Desktop/ Documents/ Downloads/ Music/ Pictures/ Public/ Templates/ Videos/ Descargas/ Documentos/ Escritorio/ Imágenes/ Música/ Plantillas/ Público/ Vídeos/"
+DEFAULT_DNS_LOCKDOWN="edgecastcdn.net root-servers.net cdn.mozilla.net services.mozilla.com googleapis.com detectportal.firefox.com o.lencr.org spocs.getpockercom telemetry.mozilla.org ssl.gstatic.com ipv4only.arpa clients6.google.com dataops.mozgcp.net ocsp.digicert.com dscq.akamai.net l.google.com phicdn.net ocsp.pki.goog mozaws.net addons.mozilla.org cloudfront.net akamaiedge.net daisy.ubuntu.com in-addr.arpa ip6.arpa connectivity-check.ubuntu.com gstatic.com fonts.gstatic.com fonts.googleapis.com recaptcha.net www.recaptcha.net"
+DEFAULT_DNS_LOCKDOWN_INTERFACE="en+"
 PERSISTENT_STORAGE_PATH="/var/guest-data"
-REPO_URL="https://github.com/olimpiada-informatica/vm-proctoring"
-REPO_PATH="/opt/vm-proctoring"
-COMPATIBLE_OS="Xubuntu 24.04"
+REPO_NAME="vm-proctoring"
+REPO_URL="https://github.com/olimpiada-informatica/$REPO_NAME"
+REPO_PATH="/opt/$REPO_NAME"
+COMPATIBLE_OS=("Xubuntu 22.04" "Xubuntu 22.10" "Xubuntu 23.04" "Xubuntu 23.10" "Xubuntu 24.04" "Xubuntu 24.10" "Xubuntu 25.04" "Xubuntu 25.10" "Xubuntu 26.04")
 CUSTOM_LINE_COMMENT="oi-vm"
+TIMEZONE="Europe/Madrid"
+CPU_MIN="2"
+RAM_MIN="4G"
+VRAM_MIN="128M"
 
+# Functions
 function error {
         echo -e "$@" >&2
         exit 1
@@ -98,7 +103,7 @@ function install_proctor {
 function configure_contestant_env {
 
         echo "Configuring contest environment..."
-        "$REPO_PATH/vm-contestant/setup_contestsant_vm.sh"
+        "$REPO_PATH/vm-contestant/setup_contestsant_vm.sh" "$TIMEZONE" "$PROCTOR_USERNAME" "$CUSTOM_LINE_COMMENT"
 
 }
 
@@ -120,7 +125,7 @@ function install_locales {
 
         last_lang=""
         rm -f /var/lib/locales/supported.d/*
-        for locale in $(echo $locales "$NATIVE_LOCALE" | xargs | tr ' ' '\n' | sort | uniq); do
+        for locale in $(echo $locales "$DEFAULT_LOCALE" | xargs | tr ' ' '\n' | sort | uniq); do
                 lang="${locale:0:2}"
                 full_locale="$locale.UTF-8 UTF8"
                 test "$last_lang" != "$lang" && truncate -s0 /var/lib/locales/supported.d/"$lang"
@@ -139,7 +144,6 @@ function install_locales {
 function default_locale {
 
         locale="$1"
-        test -z "$locale" && locale="$NATIVE_LOCALE"
 
         echo "Setting up locale: $locale"
         countrycode="${locale: -2}"
@@ -180,9 +184,8 @@ function disable_screenlock {
 function enable_persistent_storage {
 
         is_enabled "$1" && external="true"
-        dirname="${2:-$NATIVE_PERSISTENT_DIRNAME}"
 
-        echo -e "Enabling persistent storage for guest user:\n  Directory name: $dirname\n  External: ${external:-false}"
+        echo -e "Enabling persistent storage for guest user:\n  Directory name: $PERSISTENT_DIRNAME\n  External: ${external:-false}"
 
         clear_persistent_storage
 
@@ -193,31 +196,31 @@ function enable_persistent_storage {
                 setfacl -d -m g::rwX "$PERSISTENT_STORAGE_PATH" &&
                 setfacl -d -m u::rwX "$PERSISTENT_STORAGE_PATH" &&
                 setfacl -d -m mask::rwx "$PERSISTENT_STORAGE_PATH"
-        ln -sf "$PERSISTENT_STORAGE_PATH" "/etc/guest-session/skel/$dirname"
-        echo "cd \$HOME/$dirname" > /etc/guest-session/skel/.bashrc
-        echo "$dirname" > "$CONFIG_PATH"/persistent_storage_dirname.installed
+        ln -sf "$PERSISTENT_STORAGE_PATH" "/etc/guest-session/skel/$PERSISTENT_DIRNAME"
+        echo "cd \$HOME/$PERSISTENT_DIRNAME" > /etc/guest-session/skel/.bashrc
+        echo "$PERSISTENT_DIRNAME" > "$CONFIG_PATH"/persistent_storage_dirname.installed
 
         mkdir -p /etc/guest-session/skel/.config/Code/User/
         cat << EOF > /etc/guest-session/skel/.config/Code/User/settings.json
 {
-  "terminal.integrated.cwd": "/home/contestant/$dirname",
+  "terminal.integrated.cwd": "/home/contestant/$PERSISTENT_DIRNAME",
   "files.autoSave": "afterDelay",
   "python.analysis.typeCheckingMode": "strict"
 }
 EOF
 
         test -d /etc/guest-session/skel/Desktop || mkdir /etc/guest-session/skel/Desktop
-        ln -sf "$PERSISTENT_STORAGE_PATH" /etc/guest-session/skel/Desktop/"$dirname"
+        ln -sf "$PERSISTENT_STORAGE_PATH" /etc/guest-session/skel/Desktop/"$PERSISTENT_DIRNAME"
 
         touch /etc/guest-session/skel/.skip-guest-warning-dialog
         if test "$locale" = ca_ES -o "$locale" = ca; then
         ! test -f /etc/guest-session/auto.sh && echo '#!/bin/bash' > /etc/guest-session/auto.sh
         remove_custom_lines /etc/guest-session/auto.sh true
-                echo '{ sleep 4; zenity --warning --no-wrap --title="Usuari temporal" --text="Totes les dades creades seran eliminades\nen sortir, incloent les configuracions de les aplicacions.\n\nPer garantir que en cas de fallida del sistema\nno perdis els programes, desa els teus codis\nal directori '"$dirname"'."; } & # '"$CUSTOM_LINE_COMMENT"
+                echo '{ sleep 4; zenity --warning --no-wrap --title="Usuari temporal" --text="Totes les dades creades seran eliminades\nen sortir, incloent les configuracions de les aplicacions.\n\nPer garantir que en cas de fallida del sistema\nno perdis els programes, desa els teus codis\nal directori '"$PERSISTENT_DIRNAME"'."; } & # '"$CUSTOM_LINE_COMMENT"
         elif test "$locale" = es_ES -o "$locale" = es; then
-                echo '{ sleep 4; zenity --warning --no-wrap --title="Usuario temporal" --text="Al salir no se van a guardar los datos creados,\nincluidas las configuraciones de las aplicaciones.\n\nPara garantizar que en caso de fallo del sistema\nno pierdas los programas, guarda tus programas\nen el directorio '"$dirname"'."; } & # '"$CUSTOM_LINE_COMMENT"
+                echo '{ sleep 4; zenity --warning --no-wrap --title="Usuario temporal" --text="Al salir no se van a guardar los datos creados,\nincluidas las configuraciones de las aplicaciones.\n\nPara garantizar que en caso de fallo del sistema\nno pierdas los programas, guarda tus programas\nen el directorio '"$PERSISTENT_DIRNAME"'."; } & # '"$CUSTOM_LINE_COMMENT"
         else
-                echo '{ sleep 4; zenity --warning --no-wrap --title="Temporary user" --text="All your data will be lost when leaving the session,\nincluding the configuration of the applications.\n\nTo ensure your code is not lost in case of system failure,\nsave all your code in the '"$dirname"' directory."; } # '"$CUSTOM_LINE_COMMENT"
+                echo '{ sleep 4; zenity --warning --no-wrap --title="Temporary user" --text="All your data will be lost when leaving the session,\nincluding the configuration of the applications.\n\nTo ensure your code is not lost in case of system failure,\nsave all your code in the '"$PERSISTENT_DIRNAME"' directory."; } # '"$CUSTOM_LINE_COMMENT"
         fi >> /etc/guest-session/auto.sh
         chmod a+x /etc/guest-session/auto.sh
 
@@ -280,13 +283,13 @@ function set_lock_message {
 
 function enable_dns_lockdown {
 
-        interface="${1:-$NATIVE_DNS_LOCKDOWN_INTERFACE}"
+        interface="$1"
         shift
         explicit_allowlist="$@"
 
         domains=""
         ips=""
-        for item in $explicit_allowlist $(echo $dns_lockdown_implicit_exceptions | xargs | tr ' ' '\n' | sort | uniq) $NATIVE_DNS_LOCKDOWN; do
+        for item in $explicit_allowlist $(echo $dns_lockdown_implicit_exceptions | xargs | tr ' ' '\n' | sort | uniq) $DEFAULT_DNS_LOCKDOWN; do
                 test -n "$item" || continue
                 echo "$item" | grep -qE '^[0-9.]+$' && ips="$ips $item" || domains="$domains $(echo $item | idn --no-tld)"
         done
@@ -427,7 +430,7 @@ function enable_httptun {
 
         server="$1"
         password="$2"
-        user="${3:-$NATIVE_PROCTOR_USER}"
+        user="$3"
         is_enabled "$4" && monitor="true"
         shift 4
         oiproctor_diff_ignore="$@"
@@ -441,7 +444,7 @@ function enable_httptun {
         chmod go-rwx "/home/$user/.ssh/authorized_keys"
         chown "$user:$user" "/home/$user/.ssh/authorized_keys"
 
-        echo "$NATIVE_PROCTOR_DIFF_IGNORE $oiproctor_diff_ignore" | xargs | tr ' ' '\n' > "/home/$user/oiproctor_diff.ignore"
+        echo "$DEFAULT_PROCTOR_DIFF_IGNORE $oiproctor_diff_ignore" | xargs | tr ' ' '\n' > "/home/$user/oiproctor_diff.ignore"
 
         echo "ENABLED=1" > /etc/httptun
         echo "SERVER=\"$server\"" >> /etc/httptun
@@ -606,7 +609,7 @@ function defragment_notice {
 
 # Global variables
 profile_path=""
-default_profile_path="$PROFILES_PATH/$NATIVE_PROFILE"
+default_profile_path="$OISETUP_PROFILES_PATH/$DEFAULT_OISETUP_PROFILE"
 locale=""
 dns_lockdown_implicit_exceptions=""
 
@@ -659,20 +662,16 @@ done
 
 if is_enabled "$param_help" || is_enabled "$param_error"; then
         is_enabled "$param_error" && echo "Invalid arguments!"
-        echo -e "Usage: $(basename "$0") [profile] [options]...\nAvailable profiles:\n\t$(for file in "$PROFILES_PATH"/*; do test -L "$file" || basename "$(echo "$file")"; done | sort | xargs)\nProfiles are located in:\n\t$PROFILES_PATH\nOptions:\n\t-d --defragment\tDefragment the disk (so it can later be compacted and compressed for distribution)\n\t-r --refresh\tOnly refresh the profile, keep persistent data\n\t-g --gitpull\tUpdate from git repo before installing\n\t-c --config-os\tSets up the contest environment\n-F --skip-os-checks\tDo not check if the OS matches\n\t-h --help\tDisplay this help message"
+        echo -e "Usage: $(basename "$0") [profile] [options]...\nAvailable profiles:\n\t$(for file in "$OISETUP_PROFILES_PATH"/*; do test -L "$file" || basename "$(echo "$file")"; done | sort | xargs)\nProfiles are located in:\n\t$OISETUP_PROFILES_PATH\nOptions:\n\t-d --defragment\tDefragment the disk (so it can later be compacted and compressed for distribution)\n\t-r --refresh\tOnly refresh the profile, keep persistent data\n\t-g --gitpull\tUpdate from git repo before installing\n\t-c --config-os\tSets up the contest environment\n-F --skip-os-checks\tDo not check if the OS matches\n\t-h --help\tDisplay this help message"
         exit ${param_error:+1}
 fi
 
-if test -z "$param_profile"; then
-        param_refresh="true"
-        param_profile="$NATIVE_PROFILE"
-fi
-profile_path="$PROFILES_PATH/$param_profile"
-! test -f "$profile_path" && error "No $PROFILES_PATH/$param_profile file found!"
+test -z "$param_profile" && param_refresh="true" param_profile="$DEFAULT_OISETUP_PROFILE"
+profile_path="$OISETUP_PROFILES_PATH/$param_profile"
 
 # System checks
 if ! is_enabled "$param_skipos"; then
-	test "$(grep '^title=' /etc/alternatives/text.plymouth | cut -d= -f2)" != "$COMPATIBLE_OS" && error "This installer only works with $COMPATIBLE_OS. Call with --skip-os-checks if you want to proceed."
+        printf '%s\0' "${COMPATIBLE_OS[@]}" | grep -F -x -z -- "$(grep '^title=' /etc/alternatives/text.plymouth | cut -d= -f2)" && error -e "This installer only works with one of the following OSs: $(printf '\t%s\n' "${COMPATIBLE_OS[@]}")\nCall with --skip-os-checks if you want to proceed."
         for path in "$CONFIG_PATH" /var/lib/locales/supported.d/ /usr/share/i18n/SUPPORTED; do
                 test -e "$path" || error "Path $path does not exist!"
         done
@@ -680,10 +679,21 @@ if ! is_enabled "$param_skipos"; then
                 test "$(echo "$command" | wc -w)" -eq 1 && command="$command --help"
                 $command >/dev/null 2>&1 || error "Program $(echo $command | cut -d' ' -f1) is required!"
         done
+        test ! -L "$default_profile_path" && error "Path $default_profile_path is not a softlink. Delete it or symlink it to the current profile."
+        test "$CPU_MIN" -gt "$(nproc --all)" && error "The system must have at least $CPU_MIN CPU cores"
+        test "$(echo "$RAM_MIN" | numfmt --from=si)" -gt "$(("$(cat /proc/meminfo | grep MemTotal | head -1 | awk '{ print $2 }')" * 1000))" && error "The system must have at least $RAM_MIN total RAM"
+        test "$(echo "$VRAM_MIN" | numfmt --from=si)" -gt "$(lspci -vvnn  | grep -Pzo "(?s)\[03.*?\sprefetchable\) \K\[size=(\d+)M\]" | head -1 | sed -E 's/^.*\[size=([0-9KMG]+)\].*$/\1/' | numfmt --from=iec)" && error "The system must have at least $VRAM_MIN graphics memmory"
+        grep -qiE "direct rendering:[[:space:]]+Yes" /var/log/Xorg.0.log && echo "Warning: 3D acceleration is usually problematic, it is recommended to disable it"
 fi
 
 # Load settings
+! test -f "$profile_path" && error "No $OISETUP_PROFILES_PATH/$param_profile file found!"
 . "$profile_path"
+
+# Load default values
+for varname in OISETUP_PROFILE LOCALE PERSISTENT_DIRNAME PROCTOR_USERNAME PROCTOR_DIFF_IGNORE DNS_LOCKDOWN DNS_LOCKDOWN_INTERFACE; do
+        test -z "${!varname}" &&  printf -v "$varname" "%d" "${!DEFAULT_${varname}}"
+done
 
 # Check settings
 test -z "$CONTEST_NAME" && error "Missing CONTEST_NAME value in $profile_path!"
@@ -698,8 +708,8 @@ if test -n "$PROCTOR_TUNNEL_URL" -o -n "$PROCTOR_TUNNEL_PASSWORD"; then
         test -z "$PROCTOR_TUNNEL_PASSWORD" && error "Invalid PROCTOR_TUNNEL_PASSWORD value in $profile_path: Defining a value in PROCTOR_TUNNEL_PASSWORD is mandatory if PROCTOR_TUNNEL_URL is set!"
         test -n "$PROCTOR_TUNNEL_URL" -a "${PROCTOR_TUNNEL_URL:0:8}" != "https://" && error "Invalid settings in $profile_path: PROCTOR_TUNNEL_URL must begin with https://!"
         test -n "$PROCTOR_TUNNEL_URL" && test -z "$(get_domain "$PROCTOR_TUNNEL_URL")" && error "Invalid PROCTOR_TUNNEL_URL value in $profile_path: $PROCTOR_TUNNEL_URL is not a valid URL!"
-        test -n "$PROCTOR_USER" -a ! -d "/home/$PROCTOR_USER" && error "Invalid PROCTOR_USER value in $profile_path: $PROCTOR_USER is not a valid user!"
-        ! test -f "/home/${PROCTOR_USER:-$NATIVE_PROCTOR_USER}/.ssh/authorized_keys" && error "User ${PROCTOR_USER:-$NATIVE_PROCTOR_USER} has no \$HOME/.ssh/authorized_keys file!"
+        test -n "$PROCTOR_USERNAME" -a ! -d "/home/$PROCTOR_USERNAME" && error "Invalid PROCTOR_USER value in $profile_path: $PROCTOR_USERNAME is not a valid user!"
+        ! test -f "/home/$PROCTOR_USERNAME/.ssh/authorized_keys" && error "User $PROCTOR_USERNAME has no \$HOME/.ssh/authorized_keys file!"
 fi
 
 test -n "$CONTEST_URL" && test -z "$(get_domain "$CONTEST_URL")" && error "Invalid CONTEST_URL value in $profile_path: $CONTEST_URL is not a valid URL!"
@@ -707,7 +717,7 @@ test -n "$CONTEST_URL" && test -z "$(get_domain "$CONTEST_URL")" && error "Inval
 for locale in $AVAILABLE_LOCALES; do
         grep -qE "^$locale.UTF-8 UTF-8\$" /usr/share/i18n/SUPPORTED || error "Unsupported locale $locale!"
 done
-test -n "$DEFAULT_LOCALE" && ! echo " $AVAILABLE_LOCALES $NATIVE_LOCALE " | grep -q " ${DEFAULT_LOCALE} " && error "Default locale $DEFAULT_LOCALE is not set up as available in AVAILABLE_LOCALES!"
+test -n "$DEFAULT_LOCALE" && ! echo " $AVAILABLE_LOCALES $DEFAULT_LOCALE " | grep -q " ${DEFAULT_LOCALE} " && error "Default locale $DEFAULT_LOCALE is not set up as available in AVAILABLE_LOCALES!"
 
 test -n "$BOOKMARKS" && for ((i = 0; i < ${#BOOKMARKS[@]}; i += 2)); do test -z "$(get_domain "${BOOKMARKS[i]}")" && error "Invalid BOOKMARKS value in $profile_path: ${BOOKMARKS[i]} is not a valid URL!"; done
 
@@ -719,7 +729,7 @@ dns-lockdown stop 2>/dev/null
 # Update from the repo
 is_enabled "$param_gitpull" && update_from_repo
 
-! test -d "$REPO_PATH/vm-contestant" && echo "vm-proctoring repository not found in $REPO_PATH. Call with --gitpull to download it." >&2 && exit 1
+! test -d "$REPO_PATH/vm-contestant" && error "$REPO_NAME repository not found in $REPO_PATH. Call with --gitpull to download it."
 
 # Install proctoring system
 install_proctor
@@ -733,7 +743,7 @@ is_enabled "$param_configos" && configure_contestant_env
 # Perform settings
 echo "Contest: $CONTEST_NAME"
 
-test -n "$NATIVE_PROCTOR_SHADOW" && update_system_password "$NATIVE_PROCTOR_USER" "$NATIVE_PROCTOR_SHADOW"
+test -n "$DEFAULT_PROCTOR_SHADOW" && update_system_password "$DEFAULT_PROCTOR_USERNAME" "$DEFAULT_PROCTOR_SHADOW"
 
 if is_enabled "$APT_PACKAGES"; then install_apt_packages "$APT_PACKAGES"; else remove_apt_packages ALL; fi
 if is_enabled "$PIP_PACKAGES"; then install_pip_packages "$PIP_PACKAGES"; else remove_pip_packages ALL; fi
@@ -753,7 +763,7 @@ if is_enabled "$LOGO_PATH"; then set_logo "$LOGO_PATH"; else remove_logo; fi
 
 set_lock_message "${LOCK_MESSAGE_TITLE:-$CONTEST_NAME}" "$LOCK_MESSAGE_BODY" "$LOCK_MESSAGE_WIDTH" "$LOCK_MESSAGE_TYPE" "$LOCK_MESSAGE_OPTIONS"
 
-if is_enabled "$PROCTOR_TUNNEL_URL"; then enable_httptun "$PROCTOR_TUNNEL_URL" "$PROCTOR_TUNNEL_PASSWORD" "$PROCTOR_USER" "$PROCTOR_MONITOR" "$PROCTOR_DIFF_IGNORE"; else disable_httptun; fi
+if is_enabled "$PROCTOR_TUNNEL_URL"; then enable_httptun "$PROCTOR_TUNNEL_URL" "$PROCTOR_TUNNEL_PASSWORD" "$PROCTOR_USERNAME" "$PROCTOR_MONITOR" "$PROCTOR_DIFF_IGNORE"; else disable_httptun; fi
 
 if is_enabled "$STATIC_HOSTS"; then set_static_hosts $STATIC_HOSTS; else static_hosts_cleanup; fi
 
@@ -769,7 +779,7 @@ host_cleanup
 vm_version_update
 
 # Save profile as current profile
-! test -e "$default_profile_path" || test -L "$default_profile_path" && test "$default_profile_path" != "$profile_path" && ln -sf "$profile_path" "$default_profile_path"
+ln -sf "$profile_path" "$default_profile_path"
 
 # No more disk changes left, defrag if requested
 if is_enabled "$param_defrag"; then defragment_disk; else defragment_notice; fi
