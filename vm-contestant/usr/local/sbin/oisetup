@@ -733,7 +733,7 @@ function host_cleanup {
         find /var/log -type f -delete 2>/dev/null
         find /var/lib/snapd/cache/ -type f -delete 2>/dev/null
         find /home/oi/.local/share/Trash -type f -delete 2>/dev/null
-        snap list --all | awk '/disabled/{print $1, $3}' | while read snapname revision; do sudo snap remove "$snapname" --revision="$revision"; done
+        snap list --all 2>/dev/null | awk '/disabled/{print $1, $3}' | while read snapname revision; do sudo snap remove "$snapname" --revision="$revision"; done
         rm -f /home/oi/.bash_history* /root/.bash_history /home/oi/.lesshst /home/oi/.python_history /homme/oi/.viminfo /home/oi/.xsession-errors* /home/oi/.wget-hsts 2>/dev/null
         rm -rf /home/oi/.vscode /home/oi/.config/Code/ /home/.cache/mozilla 2>/dev/null
         find /var/tmp -type f -delete 2>/dev/null
