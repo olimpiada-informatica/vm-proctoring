@@ -687,7 +687,7 @@ if ! is_enabled "$param_skipos"; then
 fi
 
 # Load settings
-! test -f "$profile_path" && error "No $OISETUP_PROFILES_PATH/$param_profile file found!"
+! test -f "$profile_path" && error "File $profile_path not found!"
 . "$profile_path"
 
 # Load default values
