@@ -77,9 +77,12 @@ function update_from_repo {
                         git -C "$REPO_PATH" pull && repo_updated="true"
                 fi
                 if test -n "$repo_updated"; then
+                        echo "Respawning with updated code..."
                         exec -- "$0" "$@" --skip-respawn # Rerun this script in case it has been updated in repo
                         exit 0
                 fi
+        else
+                echo "Respawning completed"
         fi
 
         if test -d "$REPO_PATH/vm-proctor"; then
