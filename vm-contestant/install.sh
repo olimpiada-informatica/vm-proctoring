@@ -1,16 +1,42 @@
 #!/bin/bash
 
-# Functions (copied from oisetup)
+REPO_NAME="vm-proctoring"
+REPO_URL="https://github.com/olimpiada-informatica/$REPO_NAME"
+REPO_PATH="/opt/$REPO_NAME"
+
+# Functions
 function error {
         echo -e "$@" >&2
         exit 1
 }
 
 # Context checks
-test "$EUID" -ne 0 && error "This script must be run as root!"
+test "$EUID" -ne 0 && echo "This script must run with root privileges. Requesting permission." && exec sudo "$0" "$@"
 
 # Commandline checks
 test "$1" = "-c" -o "$1" = "--copy" && copy="true"
+test "$1" = "-s" -o "$1" = "--silent" && silent="true"
+
+# Restore full internet access
+dns-lockdown stop 2>/dev/null # The command may not yet be installed
+
+# Download the repo
+if test ! -d "$REPO_PATH"; then
+        echo "Installing from repo..."
+        git clone "$REPO_URL" "$REPO_PATH" && repo_updated="true" || erro "Failed to download from the repository."
+elif test "$(git -C "$REPO_PATH" ls-remote "$REPO_URL" refs/heads/main | cut -f1)" != "$(git -C "$REPO_PATH" rev-parse refs/heads/main)"; then
+        echo "Updating from repo..."
+        git -C "$REPO_PATH" pull && repo_updated="true" || error "Failed to download from the repository! Internet access is left fully open."
+fi
+
+# Re-enable internet restrictions
+dns-lockdown start 2>/dev/null # The command may not yet be installed
+
+# Delete proctor server files
+if test -d "$REPO_PATH/vm-proctor"; then
+	echo "Deleting proctor server repo files..."
+	rm -rf "$REPO_PATH/vm-proctor"
+fi
 
 # Link/Copy files
 dir="$(dirname "$0")"
@@ -22,11 +48,11 @@ for path in $(find "$dir" -type f); do
 	dst="$(echo $path | cut -c "$(echo "$dir" | wc -c)"-)"
 	mkdir -p "$(dirname "$dst")"
 	test -z "$copy" && ln -sf "$src" "$dst" 2>/dev/null || cp -f "$src" "$dst" 2>/dev/null
-	if test $? -ne 0; then
-		echo "Failed to install $src -> $dst. Aborting" >&2
-		exit 1
-	fi
+	test $? -ne 0 && error "Failed to install $src -> $dst. Aborting"
 done
 
 # Reload systemd daemon to load the installed files
-systemctl daemon-reload
+systemctl daemon-reload || error "Failed to reload systemd settings"
+
+# Ready
+test -z "$silent" && echo "You may now run: oisetup <profile>" # Only show if not called from `oisetup`

@@ -5,10 +5,8 @@
 
 ## Entorno
 
-- Estos scripts están configurados para ejecutarse en Xubuntu 24.04
-- Descargar la extensión oimoitor.xpi en /usr/lib/firefox-addons/distribution/extensions/
-- Para no mostrar las solicitudes de actualización del sistema, se recomienda ejecutar: `sudo bash -c 'echo "Hidden=true" >> /etc/xdg/autostart/update-notifier.desktop'`
-- Aplicaciones recomendadas: vim sublime-text idle3 clang code default-jdk geany firefox, más las extensiones ms-vscode.cpptools y ms-python.python de Code
+- Estos scripts están configurados para ejecutarse en Xubuntu 26.04
+- Instala mediante este comando: `wget -qO- https://github.com/olimpiada-informatica.org/vm-proctoring/vm-contestant/install.sh | bash`
 
 ## Configuración
 
@@ -83,10 +81,8 @@ Utilidades de usuario:
 
 ## Environment
 
-- These scripts are set up to run on Xubuntu 24.04
-- Download the extension oimoitor.xpi to /usr/lib/firefox-addons/distribution/extensions/
-- To avoid system update prompts, it is recommended to run: `sudo bash -c 'echo "Hidden=true" >> /etc/xdg/autostart/update-notifier.desktop'`
-- Recommended applications: vim sublime-text idle3 clang code default-jdk geany firefox, plus the Code extensions ms-vscode.cpptools and ms-python.python
+- These scripts are set up to run on Xubuntu 26.04
+- Install with the command: `wget -qO- https://github.com/olimpiada-informatica.org/vm-proctoring/vm-contestant/install.sh | bash`
 
 ## Setup
 
