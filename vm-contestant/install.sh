@@ -16,4 +16,5 @@ for path in $(find "$dir" -type f); do
 		exit 1
 	fi
 done
+
 systemctl daemon-reload

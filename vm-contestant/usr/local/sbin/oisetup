@@ -1,7 +1,5 @@
 #!/bin/bash
 
-# Use with Xubuntu 24.04
-
 # Setup
 CONFIG_PATH="/etc/oisetup"
 PROFILES_PATH="$CONFIG_PATH/profiles"
@@ -15,20 +13,10 @@ NATIVE_DNS_LOCKDOWN="edgecastcdn.net root-servers.net cdn.mozilla.net services.m
 NATIVE_DNS_LOCKDOWN_INTERFACE="en+"
 IGNORE_SYSTEM_CHECKS=
 PERSISTENT_STORAGE_PATH="/var/guest-data"
+REPO_URL="https://github.com/olimpiada-informatica/vm-proctoring"
 REPO_PATH="/opt/vm-proctoring"
-
-# Global variables
-profile_path=""
-default_profile_path="$PROFILES_PATH/$NATIVE_PROFILE"
-locale=""
-dns_lockdown_implicit_exceptions=""
-
-param_profile=""
-param_defrag=""
-param_refresh=""
-param_gitpull=""
-param_help=""
-param_error=""
+COMPATIBLE_OS="Xubuntu 24.04"
+CUSTOM_LINE_COMMENT="oi-vm"
 
 function error {
         echo -e "$@" >&2
@@ -42,62 +30,16 @@ function is_enabled {
 
 }
 
-# System checks
-if ! is_enabled "$IGNORE_SYSTEM_CHECKS"; then
-        for path in "$CONFIG_PATH" /usr/share/plymouth/themes/xubuntu-logo/logo.png /var/lib/locales/supported.d/ /usr/share/i18n/SUPPORTED /etc/locale.gen; do
-                test -e "$path" || error "Path $path does not exist!"
-        done
-        for command in idn sponge xdotool osd_cat locale-gen update-locale "setxkbmap -help" xargs sort uniq tr systemctl basename sed grep apt-get pip3 "ping -V" ipset "iptables -V" tcpdump pgrep sudo "killall -V" perl python3 truncate; do
-                test "$(echo "$command" | wc -w)" -eq 1 && command="$command --help"
-                $command >/dev/null 2>&1 || error "Program $(echo $command | cut -d' ' -f1) is required!"
-        done
-fi
+function remove_custom_lines {
 
-# Context checks
-test "$EUID" -ne 0 && echo "This script must be run as root!" >&2 && exit 1
+        path="$1"
+        always_create="$2"
 
-# Commandline checks
-for param in $@; do
-        case $param in
-                -h | --help)
-                        param_help="true"
-                        ;;
-                -r | --refresh)
-                        param_refresh="true"
-                        ;;
-                -d | --defragment)
-                        param_defrag="true"
-                        ;;
-                -g | --gitpull)
-                        param_gitpull="true"
-                        ;;
-                -*)
-                        param_error="true"
-                        ;;
-                *)
-                        test -n "$param_profile" && echo "Only one profile can be enabled" >&2 && exit 1
-                        param_profile="$1"
-                        ;;
-        esac
-done
-
-if is_enabled "$param_help" || is_enabled "$param_error"; then
-        is_enabled "$param_error" && echo "Invalid arguments!"
-        echo -e "Usage: $(basename "$0") [profile] [options]...\nAvailable profiles:\n\t$(for file in "$PROFILES_PATH"/*; do test -L "$file" || basename "$(echo "$file")"; done | sort | xargs)\nProfiles are located in:\n\t$PROFILES_PATH\nOptions:\n\t-d --defragment\tDefragment the disk (so it can later be compacted and compressed for distribution)\n\t-r --refresh\tOnly refresh the profile, keep persistent data\n\t-g --gitpull\tUpdate from git repo before installing\n\t-h --help\tDisplay this help message"
-        exit ${param_error:+1}
-fi
-
-if test -z "$param_profile"; then
-        param_refresh="true"
-        param_profile="$NATIVE_PROFILE"
-fi
-profile_path="$PROFILES_PATH/$param_profile"
-! test -f "$profile_path" && echo "No $PROFILES_PATH/$param_profile file found!" >&2 && exit 1
-
-function get_enabled {
-
-        value="$1"
-        is_enabled "$value" && echo true
+        if test -f "$path"; then
+                grep -v "$CUSTOM_LINE_COMMENT" "$path" > "$path.tmp" && mv -f "$path.tmp" "$path"
+        else
+                test -n "$always_create" && touch "$path"
+        fi
 
 }
 
@@ -119,15 +61,54 @@ function get_domain {
 
 }
 
-function install_repo {
-	
-	test -n "$param_gitpull" && echo "Updating from repo..." && git -C "$REPO_PATH" pull
+function update_from_repo {
 
-	echo "Deleting proctor server repo files..."
-	rm -rf "$REPO_PATH/vm-proctor" 2>/dev/null
+        if test -z "$param_skiprespawn"; then # $param_skiprespawn will be true when the script has been called by itself after updating the repo
+                if test ! -d "$REPO_PATH"; then
+                        echo "Installing from repo..."
+                        git clone "$REPO_URL" "$REPO_PATH" && repo_updated="true"
+                elif test "$(git -C "$REPO_PATH" ls-remote origin refs/heads/master | cut -f1)" != "$(git -C "$REPO_PATH" rev-parse refs/heads/master)"; then
+                        echo "Updating from repo..."
+                        git -C "$REPO_PATH" pull && repo_updated="true"
+                fi
+                if test -n "$repo_updated"; then
+                        exec $@ --skip-respawn # Rerun this script in case it has been updated in repo
+                        exit 0
+                fi
+        fi
 
-	echo "Installing repo files..."
-	"$REPO_PATH/vm-contestant/install.sh"
+        if test -d "$REPO_PATH/vm-proctor"; then
+                echo "Deleting proctor server repo files..."
+                rm -rf "$REPO_PATH/vm-proctor"
+        fi
+
+}
+
+function install_proctor {
+
+        echo "Installing proctoring system..."
+
+        "$REPO_PATH/vm-contestant/install.sh"
+
+        sudo apt install -y moreutils idn ipset pypy3 python3-pip python-is-python3 xosd-bin xdotool jz4json jq sqlite3 git
+        sudo pip3 install --break-system-packages python-pytun queuelib requests
+
+}
+
+function configure_contestant_env {
+
+        echo "Configuring contest environment..."
+        "$REPO_PATH/vm-contestant/setup_contestsant_vm.sh"
+
+}
+
+function detect_vm_tools {
+
+        lsmod  | grep -q vboxguest && return # VirtualBox Tools
+        dpkg -l | grep -qE '^rc +anydesk ' && return # Open VM Tools
+        vmware-toolbox-cmd --version >/dev/null && return # VMWare Tools
+
+        echo "Warning: It is suggested that you install the VM guest tools."
 
 }
 
@@ -198,14 +179,14 @@ function disable_screenlock {
 
 function enable_persistent_storage {
 
-        external="$(get_enabled "$1")"
+        is_enabled "$1" && external="true"
         dirname="${2:-$NATIVE_PERSISTENT_DIRNAME}"
 
         echo -e "Enabling persistent storage for guest user:\n  Directory name: $dirname\n  External: ${external:-false}"
 
         clear_persistent_storage
 
-        test -n "$external" && echo "/dev/sdb1 $PERSISTENT_STORAGE_PATH vfat defaults,auto,nofail,umask=0000 0 0 # oi-vm" >> /etc/fstab
+        test -n "$external" && echo "/dev/sdb1 $PERSISTENT_STORAGE_PATH vfat defaults,auto,nofail,umask=0000 0 0 # $CUSTOM_LINE_COMMENT" >> /etc/fstab
 
         ! test -d "$PERSISTENT_STORAGE_PATH" && mkdir -m 0777 "$PERSISTENT_STORAGE_PATH"
         setfacl -d -m o::rwX "$PERSISTENT_STORAGE_PATH" &&
@@ -228,15 +209,15 @@ EOF
         test -d /etc/guest-session/skel/Desktop || mkdir /etc/guest-session/skel/Desktop
         ln -sf "$PERSISTENT_STORAGE_PATH" /etc/guest-session/skel/Desktop/"$dirname"
 
-        echo "touch \$HOME/.skip-guest-warning-dialog # oi-vm" >> /etc/guest-session/prefs.sh
+        touch /etc/guest-session/skel/.skip-guest-warning-dialog
         if test "$locale" = ca_ES -o "$locale" = ca; then
         ! test -f /etc/guest-session/auto.sh && echo '#!/bin/bash' > /etc/guest-session/auto.sh
-        test -f /etc/guest-session/auto.sh && grep -v oi-vm /etc/guest-session/auto.sh > /etc/guest-session/auto.sh.tmp || echo "" > /etc/guest-session/auto.sh.tmp
-                echo '{ sleep 4; zenity --warning --no-wrap --title="Usuari temporal" --text="Totes les dades creades seran eliminades\nen sortir, incloent les configuracions de les aplicacions.\n\nPer garantir que en cas de fallida del sistema\nno perdis els programes, desa els teus codis\nal directori '"$dirname"'."; } & # oi-vm'
+        remove_custom_lines /etc/guest-session/auto.sh true
+                echo '{ sleep 4; zenity --warning --no-wrap --title="Usuari temporal" --text="Totes les dades creades seran eliminades\nen sortir, incloent les configuracions de les aplicacions.\n\nPer garantir que en cas de fallida del sistema\nno perdis els programes, desa els teus codis\nal directori '"$dirname"'."; } & # '"$CUSTOM_LINE_COMMENT"
         elif test "$locale" = es_ES -o "$locale" = es; then
-                echo '{ sleep 4; zenity --warning --no-wrap --title="Usuario temporal" --text="Al salir no se van a guardar los datos creados,\nincluidas las configuraciones de las aplicaciones.\n\nPara garantizar que en caso de fallo del sistema\nno pierdas los programas, guarda tus programas\nen el directorio '"$dirname"'."; } & # oi-vm'
+                echo '{ sleep 4; zenity --warning --no-wrap --title="Usuario temporal" --text="Al salir no se van a guardar los datos creados,\nincluidas las configuraciones de las aplicaciones.\n\nPara garantizar que en caso de fallo del sistema\nno pierdas los programas, guarda tus programas\nen el directorio '"$dirname"'."; } & # '"$CUSTOM_LINE_COMMENT"
         else
-                echo '{ sleep 4; zenity --warning --no-wrap --title="Temporary user" --text="All your data will be lost when leaving the session,\nincluding the configuration of the applications.\n\nTo ensure your code is not lost in case of system failure,\nsave all your code in the '"$dirname"' directory."; } # oi-vm'
+                echo '{ sleep 4; zenity --warning --no-wrap --title="Temporary user" --text="All your data will be lost when leaving the session,\nincluding the configuration of the applications.\n\nTo ensure your code is not lost in case of system failure,\nsave all your code in the '"$dirname"' directory."; } # '"$CUSTOM_LINE_COMMENT"
         fi >> /etc/guest-session/auto.sh
         chmod a+x /etc/guest-session/auto.sh
 
@@ -246,17 +227,15 @@ function disable_persistent_storage {
 
         echo "Disabling persistent storage for guest user"
 
+        rm -f /etc/guest-session/skel/.skip-guest-warning-dialog
+
         clear_persistent_storage
 
 } 
 
 function clear_persistent_storage {
 
-        test -f /etc/guest-session/prefs.sh && grep -v oi-vm /etc/guest-session/prefs.sh > /etc/guest-session/prefs.sh.tmp || echo "" > /etc/guest-session/prefs.sh.tmp
-        mv -f /etc/guest-session/prefs.sh.tmp /etc/guest-session/prefs.sh
-
-        test -f /etc/guest-session/auto.sh && grep -v oi-vm /etc/guest-session/auto.sh > /etc/guest-session/auto.sh.tmp || echo "" > /etc/guest-session/auto.sh.tmp
-        mv -f /etc/guest-session/auto.sh.tmp /etc/guest-session/auto.sh
+        remove_custom_lines /etc/guest-session/auto.sh true
 
         if ! is_enabled "$param_refresh"; then
                 umount "$PERSISTENT_STORAGE_PATH" 2>/dev/null
@@ -268,8 +247,7 @@ function clear_persistent_storage {
                 rm -f /etc/guest-session/skel/"$olddirname" /etc/guest-session/skel/Desktop/"$olddirname" "$CONFIG_PATH"/persistent_storage_dirname.installed
         fi
 
-        grep -v oi-vm /etc/fstab > /etc/fstab.tmp || echo "" > /etc/fstab.tmp
-        mv -f /etc/fstab.tmp /etc/fstab
+        remove_custom_lines /etc/fstab true
 
 }
 
@@ -450,7 +428,7 @@ function enable_httptun {
         server="$1"
         password="$2"
         user="${3:-$NATIVE_PROCTOR_USER}"
-        monitor="$(get_enabled "$4")"
+        is_enabled "$4" && monitor="true"
         shift 4
         oiproctor_diff_ignore="$@"
 
@@ -626,42 +604,131 @@ function defragment_notice {
 
 }
 
+# Global variables
+profile_path=""
+default_profile_path="$PROFILES_PATH/$NATIVE_PROFILE"
+locale=""
+dns_lockdown_implicit_exceptions=""
+
+param_profile=""
+param_defrag=""
+param_refresh=""
+param_gitpull=""
+param_configos=""
+param_skipos=""
+param_skiprespawn=""
+param_help=""
+param_error=""
+
+# Context checks
+test "$EUID" -ne 0 && error "This script must be run as root!"
+
+# Commandline checks
+for param in $@; do
+        case $param in
+                -h | --help)
+                        param_help="true"
+                        ;;
+                -r | --refresh)
+                        param_refresh="true"
+                        ;;
+                -d | --defragment)
+                        param_defrag="true"
+                        ;;
+                -g | --gitpull)
+                        param_gitpull="true"
+                        ;;
+                -c | --config-os)
+                        param_configos="true"
+                        ;;
+                -F | --skip-os-check)
+                        param_skipos="true"
+                        ;;
+                --skip-respawn)
+                        param_skiprespawn="true"
+                        ;;
+                -*)
+                        param_error="true"
+                        ;;
+                *)
+                        test -n "$param_profile" && error "Only one profile can be enabled"
+                        param_profile="$1"
+                        ;;
+        esac
+done
+
+if is_enabled "$param_help" || is_enabled "$param_error"; then
+        is_enabled "$param_error" && echo "Invalid arguments!"
+        echo -e "Usage: $(basename "$0") [profile] [options]...\nAvailable profiles:\n\t$(for file in "$PROFILES_PATH"/*; do test -L "$file" || basename "$(echo "$file")"; done | sort | xargs)\nProfiles are located in:\n\t$PROFILES_PATH\nOptions:\n\t-d --defragment\tDefragment the disk (so it can later be compacted and compressed for distribution)\n\t-r --refresh\tOnly refresh the profile, keep persistent data\n\t-g --gitpull\tUpdate from git repo before installing\n\t-c --config-os\tSets up the contest environment\n-F --skip-os-checks\tDo not check if the OS matches\n\t-h --help\tDisplay this help message"
+        exit ${param_error:+1}
+fi
+
+if test -z "$param_profile"; then
+        param_refresh="true"
+        param_profile="$NATIVE_PROFILE"
+fi
+profile_path="$PROFILES_PATH/$param_profile"
+! test -f "$profile_path" && error "No $PROFILES_PATH/$param_profile file found!"
+
+# System checks
+if ! is_enabled "$param_skipos"; then
+	test "$(grep '^title=' /etc/alternatives/text.plymouth | cut -d= -f2)" != "$COMPATIBLE_OS" && error "This installer only works with $COMPATIBLE_OS. Call with --skip-os-checks if you want to proceed."
+        for path in "$CONFIG_PATH" /var/lib/locales/supported.d/ /usr/share/i18n/SUPPORTED; do
+                test -e "$path" || error "Path $path does not exist!"
+        done
+        for command in locale-gen update-locale "setxkbmap -help" xargs sort uniq tr systemctl basename sed grep apt-get "ping -V" "iptables -V" tcpdump pgrep sudo "killall -V" perl truncate; do
+                test "$(echo "$command" | wc -w)" -eq 1 && command="$command --help"
+                $command >/dev/null 2>&1 || error "Program $(echo $command | cut -d' ' -f1) is required!"
+        done
+fi
+
 # Load settings
 . "$profile_path"
 
 # Check settings
-test -z "$CONTEST_NAME" && echo "Missing CONTEST_NAME value in $profile_path!" >&2 && exit 1
+test -z "$CONTEST_NAME" && error "Missing CONTEST_NAME value in $profile_path!"
 
 if test -n "$LOGO_PATH"; then
-        ! test -f "$LOGOS_PATH/$LOGO_PATH" && echo "Invalid LOGO_PATH value in $profile_path: $LOGOS_PATH/$LOGO_PATH does not exist!" >&2 && exit 1
-        ! test "${LOGO_PATH/*.}" = "png" && echo "Invalid LOGO_PATH format in $profile_path: $LOGO_PATH must be a png file!" >&2 && exit 1
+        ! test -f "$LOGOS_PATH/$LOGO_PATH" && error "Invalid LOGO_PATH value in $profile_path: $LOGOS_PATH/$LOGO_PATH does not exist!"
+        ! test "${LOGO_PATH/*.}" = "png" && error "Invalid LOGO_PATH format in $profile_path: $LOGO_PATH must be a png file!"
 fi
 
 if test -n "$PROCTOR_TUNNEL_URL" -o -n "$PROCTOR_TUNNEL_PASSWORD"; then
-        test -z "$PROCTOR_TUNNEL_URL" && echo "Invalid PROCTOR_TUNNEL_URL value in $profile_path: Cannot define a value in PROCTOR_TUNNEL_PASSWORD without a value in PROCTOR_TUNNEL_URL!" >&2 && exit 1
-        test -z "$PROCTOR_TUNNEL_PASSWORD" && echo "Invalid PROCTOR_TUNNEL_PASSWORD value in $profile_path: Defining a value in PROCTOR_TUNNEL_PASSWORD is mandatory if PROCTOR_TUNNEL_URL is set!" >&2 && exit 1
-        test -n "$PROCTOR_TUNNEL_URL" -a "${PROCTOR_TUNNEL_URL:0:8}" != "https://" && echo "Invalid settings in $profile_path: PROCTOR_TUNNEL_URL must begin with https://!" >&2 && exit 1
-        test -n "$PROCTOR_TUNNEL_URL" && test -z "$(get_domain "$PROCTOR_TUNNEL_URL")" && echo "Invalid PROCTOR_TUNNEL_URL value in $profile_path: $PROCTOR_TUNNEL_URL is not a valid URL!" >&2 && exit 1
-        test -n "$PROCTOR_USER" -a ! -d "/home/$PROCTOR_USER" && echo "Invalid PROCTOR_USER value in $profile_path: $PROCTOR_USER is not a valid user!" >&2 && exit 1
-        ! test -f "/home/${PROCTOR_USER:-$NATIVE_PROCTOR_USER}/.ssh/authorized_keys" && echo "User ${PROCTOR_USER:-$NATIVE_PROCTOR_USER} has no \$HOME/.ssh/authorized_keys file!" >&2 && exit 1
+        test -z "$PROCTOR_TUNNEL_URL" && error "Invalid PROCTOR_TUNNEL_URL value in $profile_path: Cannot define a value in PROCTOR_TUNNEL_PASSWORD without a value in PROCTOR_TUNNEL_URL!"
+        test -z "$PROCTOR_TUNNEL_PASSWORD" && error "Invalid PROCTOR_TUNNEL_PASSWORD value in $profile_path: Defining a value in PROCTOR_TUNNEL_PASSWORD is mandatory if PROCTOR_TUNNEL_URL is set!"
+        test -n "$PROCTOR_TUNNEL_URL" -a "${PROCTOR_TUNNEL_URL:0:8}" != "https://" && error "Invalid settings in $profile_path: PROCTOR_TUNNEL_URL must begin with https://!"
+        test -n "$PROCTOR_TUNNEL_URL" && test -z "$(get_domain "$PROCTOR_TUNNEL_URL")" && error "Invalid PROCTOR_TUNNEL_URL value in $profile_path: $PROCTOR_TUNNEL_URL is not a valid URL!"
+        test -n "$PROCTOR_USER" -a ! -d "/home/$PROCTOR_USER" && error "Invalid PROCTOR_USER value in $profile_path: $PROCTOR_USER is not a valid user!"
+        ! test -f "/home/${PROCTOR_USER:-$NATIVE_PROCTOR_USER}/.ssh/authorized_keys" && error "User ${PROCTOR_USER:-$NATIVE_PROCTOR_USER} has no \$HOME/.ssh/authorized_keys file!"
 fi
 
-test -n "$CONTEST_URL" && test -z "$(get_domain "$CONTEST_URL")" && echo "Invalid CONTEST_URL value in $profile_path: $CONTEST_URL is not a valid URL!" >&2 && exit 1
+test -n "$CONTEST_URL" && test -z "$(get_domain "$CONTEST_URL")" && error "Invalid CONTEST_URL value in $profile_path: $CONTEST_URL is not a valid URL!"
 
 for locale in $AVAILABLE_LOCALES; do
         grep -qE "^$locale.UTF-8 UTF-8\$" /usr/share/i18n/SUPPORTED || error "Unsupported locale $locale!"
 done
 test -n "$DEFAULT_LOCALE" && ! echo " $AVAILABLE_LOCALES $NATIVE_LOCALE " | grep -q " ${DEFAULT_LOCALE} " && error "Default locale $DEFAULT_LOCALE is not set up as available in AVAILABLE_LOCALES!"
 
-test -n "$BOOKMARKS" && for ((i = 0; i < ${#BOOKMARKS[@]}; i += 2)); do test -z "$(get_domain "${BOOKMARKS[i]}")" && echo "Invalid BOOKMARKS value in $profile_path: ${BOOKMARKS[i]} is not a valid URL!" >&2 && exit 1; done
+test -n "$BOOKMARKS" && for ((i = 0; i < ${#BOOKMARKS[@]}; i += 2)); do test -z "$(get_domain "${BOOKMARKS[i]}")" && error "Invalid BOOKMARKS value in $profile_path: ${BOOKMARKS[i]} is not a valid URL!"; done
 
-test -n "$DNS_LOCKDOWN_ALLOWLIST" -o -n "$DNS_LOCKDOWN_WHITELIST" && for domain in $DNS_LOCKDOWN_ALLOWLIST $DNS_LOCKDOWN_WHITELIST; do test -z "$(get_domain "$domain")" && echo "Invalid DNS_LOCKDOWN_ALLOWLIST value in $profile_path: $domain is not a valid domain or IP!" >&2 && exit 1; done
+test -n "$DNS_LOCKDOWN_ALLOWLIST" -o -n "$DNS_LOCKDOWN_WHITELIST" && for domain in $DNS_LOCKDOWN_ALLOWLIST $DNS_LOCKDOWN_WHITELIST; do test -z "$(get_domain "$domain")" && error "Invalid DNS_LOCKDOWN_ALLOWLIST value in $profile_path: $domain is not a valid domain or IP!"; done
 
 # We need to disable the lockdown as some settings might require internet access
-dns-lockdown stop
+dns-lockdown stop 2>/dev/null
 
-# Update and install the proctoring files
-install_repo
+# Update from the repo
+is_enabled "$param_gitpull" && update_from_repo
+
+! test -d "$REPO_PATH/vm-contestant" && echo "vm-proctoring repository not found in $REPO_PATH. Call with --gitpull to download it." >&2 && exit 1
+
+# Install proctoring system
+install_proctor
+
+# Recommend installing VM tools
+detect_vm_tools
+
+# Configure contest environment
+is_enabled "$param_configos" && configure_contestant_env
 
 # Perform settings
 echo "Contest: $CONTEST_NAME"
