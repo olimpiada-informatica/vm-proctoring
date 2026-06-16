@@ -6,7 +6,7 @@
 ## Entorno
 
 - Estos scripts están configurados para ejecutarse en Xubuntu 26.04
-- Instala mediante este comando: `wget -qO- https://raw.githubusercontent.com/olimpiada-informatica/vm-proctoring/refs/heads/main/vm-contestant/install.sh | bash`
+- Instala mediante este comando: `wget -qO- https://raw.githubusercontent.com/olimpiada-informatica/vm-proctoring/refs/heads/main/vm-contestant/install.sh | sudo bash`
 
 ## Configuración
 
@@ -81,8 +81,8 @@ Utilidades de usuario:
 
 ## Environment
 
+- Install with the command: `wget -qO- https://raw.githubusercontent.com/olimpiada-informatica/vm-proctoring/refs/heads/main/vm-contestant/install.sh | sudo bash`
 - These scripts are set up to run on Xubuntu 26.04
-- Install with the command: `wget -qO- https://raw.githubusercontent.com/olimpiada-informatica/vm-proctoring/refs/heads/main/vm-contestant/install.sh | bash`
 
 ## Setup
 

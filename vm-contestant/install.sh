@@ -11,7 +11,7 @@ function error {
 }
 
 # Context checks
-test "$EUID" -ne 0 && echo "This script must run with root privileges. Requesting permission." && exec sudo "$0" "$@"
+test "$EUID" -ne 0 && error "This script must run with root privileges!"
 
 # Commandline checks
 test "$1" = "-c" -o "$1" = "--copy" && copy="true"
