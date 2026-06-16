@@ -145,14 +145,14 @@ chmod a+rx /bin/g++
 ln -f /bin/g++ /usr/bin/g++ # Not symbolic link, hard link
 
 # Install Sublime text
-curl https://download.sublimetext.com/sublimehq-pub.gpg > /etc/apt/trusted.gpg.d/sublimehq-archive.gpg.asc
+wget -q0- https://download.sublimetext.com/sublimehq-pub.gpg > /etc/apt/trusted.gpg.d/sublimehq-archive.gpg.asc
 echo -e 'Types: deb\nURIs: https://download.sublimetext.com/\nSuites: apt/stable/\nSigned-By: /etc/apt/keyrings/sublimehq-pub.asc' > /etc/apt/sources.list.d/sublime-text.sources
 apt update
 apt install -y sublime-text
 
 # Install VSCode
 apt install -y gpg
-curl https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor -o /etc/apt/keyrings/packages.microsoft.gpg
+wget -q0- https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor -o /etc/apt/keyrings/packages.microsoft.gpg
 echo -e "Types: deb\nURIs: https://packages.microsoft.com/repos/code\nSuites: stable\nComponents: main\nArchitectures: amd64,arm64,armhf\nSigned-By: /usr/share/keyrings/microsoft.gpg" > /etc/apt/sources.list.d/vscode.sources
 apt update
 apt install -y code
