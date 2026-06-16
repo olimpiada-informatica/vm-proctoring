@@ -142,7 +142,7 @@ sudo apt install -y build-essential clang vim idle default-jdk g++ geany
 rm -f /bin/g++ /usr/bin/g++
 echo -r '#!/bin/bash\nexec /bin/g++-11 -std=c++17 "$@"' > /bin/g++
 chmod a+rx /bin/g++
-ln -f /bin/g++ /usr/bin/g++ # Not symbolic link, hard link
+ln -f /bin/g++ /usr/bin/g++ 2>/dev/null # Not symbolic link, hard link
 
 # Install Sublime text
 apt install -y wget
