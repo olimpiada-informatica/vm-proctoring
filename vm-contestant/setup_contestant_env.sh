@@ -115,9 +115,10 @@ remove_custom_lines /etc/guest-session/skel/.profile true
 echo "ulimit -s 262144 # $CUSTOM_LINE_COMMENT" >> /etc/guest-session/skel/.profile
 
 #s Install Firefox compatible with guest user. Ubuntu now ships firefox as a Snap, so we need to install it as a deb in order to prepopulate its configuration for the guest user
-apt remove -y chromium-browser
+apt autopurge -y chromium-browser
 snap remove chromium
 snap remove firefox
+apt autopurge -y snapd
 add-apt-repository -y ppa:mozillateam/ppa
 cat > /etc/apt/preferences.d/mozilla-firefox << EOF
 Package: *
@@ -196,8 +197,8 @@ rm -f /etc/guest-session/skel/.vscode/argv.json
 apt autopurge -y libreoffice-* thunderbird transmission-* xfburn pidgin
 
 # Disable keyrings prompts
-apt remove -y gnome-keyring seahorse
+apt autopurge -y gnome-keyring seahorse
 
 # Clean up
-sudo apt clean
-sudo apt -y autoremove
+sudo apt autoremove -y --purge
+sudo apt clean -y
