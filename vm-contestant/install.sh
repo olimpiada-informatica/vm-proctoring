@@ -56,3 +56,6 @@ systemctl daemon-reload || error "Failed to reload systemd settings"
 
 # Ready
 test -z "$silent" && echo "You may now run: oisetup <profile>" # Only show if not called from `oisetup`
+
+# Return success for oisetup to continue
+true
