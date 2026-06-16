@@ -136,7 +136,7 @@ update-grub
 apt install -y thunar-archive-plugin
 
 # Install development tools
-sudo apt install -y build-essential clang vim idle3 default-jdk g++ geany
+sudo apt install -y build-essential clang vim idle default-jdk g++ geany
 
 # Default to C++17
 rm -f /bin/g++
@@ -145,15 +145,15 @@ chmod a+rx /bin/g++
 ln -f /bin/g++ /usr/bin/g++ # Not symbolic link, hard link
 
 # Install Sublime text
-apt install -y gpg
-curl https://download.sublimetext.com/sublimehq-pub.gpg | gpg --dearmor > /etc/apt/trusted.gpg.d/sublimehq-archive.gpg
-echo "deb https://download.sublimetext.com/ apt/stable/" > /etc/apt/sources.list.d/sublime-text.list
+curl https://download.sublimetext.com/sublimehq-pub.gpg > /etc/apt/trusted.gpg.d/sublimehq-archive.gpg.asc
+echo -e 'Types: deb\nURIs: https://download.sublimetext.com/\nSuites: apt/stable/\nSigned-By: /etc/apt/keyrings/sublimehq-pub.asc' > /etc/apt/sources.list.d/sublime-text.sources
 apt update
 apt install -y sublime-text
 
 # Install VSCode
-curl https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor > /etc/apt/keyrings/packages.microsoft.gpg
-echo "deb [arch=amd64,arm64,armhf signed-by=/etc/apt/keyrings/packages.microsoft.gpg] https://packages.microsoft.com/repos/code stable main" > /etc/apt/sources.list.d/vscode.list
+apt install -y gpg
+curl https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor -o /etc/apt/keyrings/packages.microsoft.gpg
+echo -e "Types: deb\nURIs: https://packages.microsoft.com/repos/code\nSuites: stable\nComponents: main\nArchitectures: amd64,arm64,armhf\nSigned-By: /usr/share/keyrings/microsoft.gpg" > /etc/apt/sources.list.d/vscode.sources
 apt update
 apt install -y code
 mkdir -p /etc/guest-session/skel/.local/share/applications
@@ -192,7 +192,7 @@ cp -r ~/.vscode /etc/guest-session/skel/.vscode
 rm -f /etc/guest-session/skel/.vscode/argv.json
 
 # Remove unnecessary applications
-apt autopurge libreoffice-* thunderbird transmission-* xfburn pidgin
+apt autopurge -y libreoffice-* thunderbird transmission-* xfburn pidgin
 
 # Disable keyrings prompts
 apt remove -y gnome-keyring seahorse
