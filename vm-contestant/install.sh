@@ -23,10 +23,10 @@ dns-lockdown stop 2>/dev/null # The command may not yet be installed
 # Download the repo
 if test ! -d "$REPO_PATH"; then
         echo "Installing from repo..."
-        git clone "$REPO_URL" "$REPO_PATH" && repo_updated="true" || erro "Failed to download from the repository."
+        git clone "$REPO_URL" "$REPO_PATH" || error "Failed to download from the repository."
 elif test "$(git -C "$REPO_PATH" ls-remote "$REPO_URL" refs/heads/main | cut -f1)" != "$(git -C "$REPO_PATH" rev-parse refs/heads/main)"; then
         echo "Updating from repo..."
-        git -C "$REPO_PATH" pull && repo_updated="true" || error "Failed to download from the repository! Internet access is left fully open."
+        git -C "$REPO_PATH" pull || error "Failed to download from the repository! Internet access is left fully open."
 fi
 
 # Re-enable internet restrictions
