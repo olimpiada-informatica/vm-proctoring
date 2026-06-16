@@ -15,7 +15,7 @@ PERSISTENT_STORAGE_PATH="/var/guest-data"
 REPO_NAME="vm-proctoring"
 REPO_URL="https://github.com/olimpiada-informatica/$REPO_NAME"
 REPO_PATH="/opt/$REPO_NAME"
-COMPATIBLE_OS=("Xubuntu 22.04" "Xubuntu 22.10" "Xubuntu 23.04" "Xubuntu 23.10" "Xubuntu 24.04" "Xubuntu 24.10" "Xubuntu 25.04" "Xubuntu 25.10" "Xubuntu 26.04")
+COMPATIBLE_OS=("Xubuntu 26.04" "Xubuntu 25.10" "Xubuntu 25.04" "Xubuntu 24.10" "Xubuntu 24.04" "Xubuntu 23.10" "Xubuntu 23.04" "Xubuntu 22.10" "Xubuntu 22.04")
 CUSTOM_LINE_COMMENT="oi-vm"
 TIMEZONE="Europe/Madrid"
 CPU_MIN="2"
@@ -72,12 +72,12 @@ function update_from_repo {
                 if test ! -d "$REPO_PATH"; then
                         echo "Installing from repo..."
                         git clone "$REPO_URL" "$REPO_PATH" && repo_updated="true"
-                elif test "$(git -C "$REPO_PATH" ls-remote origin refs/heads/master | cut -f1)" != "$(git -C "$REPO_PATH" rev-parse refs/heads/master)"; then
+                elif test "$(git -C "$REPO_PATH" ls-remote "$REPO_URL" refs/heads/main | cut -f1)" != "$(git -C "$REPO_PATH" rev-parse refs/heads/main)"; then
                         echo "Updating from repo..."
                         git -C "$REPO_PATH" pull && repo_updated="true"
                 fi
                 if test -n "$repo_updated"; then
-                        exec $@ --skip-respawn # Rerun this script in case it has been updated in repo
+                        exec -- "$0" $@ --skip-respawn # Rerun this script in case it has been updated in repo
                         exit 0
                 fi
         fi
@@ -95,7 +95,7 @@ function install_proctor {
 
         "$REPO_PATH/vm-contestant/install.sh"
 
-        sudo apt install -y moreutils idn ipset pypy3 python3-pip python-is-python3 xosd-bin xdotool jz4json jq sqlite3 git
+        sudo apt install -y moreutils idn ipset pypy3 python3-pip python-is-python3 xosd-bin xdotool lz4json jq sqlite3 git
         sudo pip3 install --break-system-packages python-pytun queuelib requests
 
 }
@@ -103,7 +103,7 @@ function install_proctor {
 function configure_contestant_env {
 
         echo "Configuring contest environment..."
-        "$REPO_PATH/vm-contestant/setup_contestsant_vm.sh" "$TIMEZONE" "$PROCTOR_USERNAME" "$CUSTOM_LINE_COMMENT"
+        "$REPO_PATH/vm-contestant/setup_contestant_env.sh" "$TIMEZONE" "$PROCTOR_USERNAME" "$CUSTOM_LINE_COMMENT"
 
 }
 
@@ -234,7 +234,7 @@ function disable_persistent_storage {
 
         clear_persistent_storage
 
-} 
+}
 
 function clear_persistent_storage {
 
@@ -294,6 +294,7 @@ function enable_dns_lockdown {
                 echo "$item" | grep -qE '^[0-9.]+$' && ips="$ips $item" || domains="$domains $(echo $item | idn --no-tld)"
         done
         echo -e "Enabling DNS lockdown:\n  Whitelisted domains:${domains:- -}\n  Whitelisted IPs:${ips:- -}"
+        mkdir -p /etc/dns-lockdown 2>/dev/null
         (test -n "$domains" && echo "$domains" | tr ' ' '\n' || echo "") > /etc/dns-lockdown/domains.allowlist
         (test -n "$ips" && echo "$ips" | tr ' ' '\n' || echo "") > /etc/dns-lockdown/ips.allowlist
         echo -e "ENABLED=1\nINTERFACE=$interface" > /etc/dns-lockdown/config
@@ -382,7 +383,7 @@ function firefox_settings {
 
         echo -e "Establishing firefox settings:\n  Homepage: $homepage\n  Bookmarks: $bookmarks_descr\n  Extensions: $extensions_policy"
 
-        ! test -d /etc/firefox/policies && mkdir /etc/firefox/policies
+        ! test -d /etc/firefox/policies && mkdir -p /etc/firefox/policies
         echo '{
   "policies": {
     "Extensions": {
@@ -582,14 +583,14 @@ function host_cleanup {
 
         echo "Cleaning up the host"
         apt clean
-        find /var/log -type f -delete
-        find /var/lib/snapd/cache/ -type f -delete
-        find /home/oi/.local/share/Trash -type f -delete
+        find /var/log -type f -delete 2>/dev/null
+        find /var/lib/snapd/cache/ -type f -delete 2>/dev/null
+        find /home/oi/.local/share/Trash -type f -delete 2>/dev/null
         snap list --all | awk '/disabled/{print $1, $3}' | while read snapname revision; do sudo snap remove "$snapname" --revision="$revision"; done
-        rm -f /home/oi/.bash_history* /root/.bash_history /home/oi/.lesshst /home/oi/.python_history /homme/oi/.viminfo /home/oi/.xsession-errors* /home/oi/.wget-hsts
-        rm -rf /home/oi/.vscode /home/oi/.config/Code/ /home/.cache/mozilla
-        find /var/tmp -type f -delete
-        find /tmp -type f -delete
+        rm -f /home/oi/.bash_history* /root/.bash_history /home/oi/.lesshst /home/oi/.python_history /homme/oi/.viminfo /home/oi/.xsession-errors* /home/oi/.wget-hsts 2>/dev/null
+        rm -rf /home/oi/.vscode /home/oi/.config/Code/ /home/.cache/mozilla 2>/dev/null
+        find /var/tmp -type f -delete 2>/dev/null
+        find /tmp -type f -delete 2>/dev/null
 
 }
 
@@ -671,7 +672,7 @@ profile_path="$OISETUP_PROFILES_PATH/$param_profile"
 
 # System checks
 if ! is_enabled "$param_skipos"; then
-        printf '%s\0' "${COMPATIBLE_OS[@]}" | grep -F -x -z -- "$(grep '^title=' /etc/alternatives/text.plymouth | cut -d= -f2)" && error -e "This installer only works with one of the following OSs: $(printf '\t%s\n' "${COMPATIBLE_OS[@]}")\nCall with --skip-os-checks if you want to proceed."
+        printf '%s\0' "${COMPATIBLE_OS[@]}" | grep -q -F -x -z -- "$(grep '^title=' /etc/alternatives/text.plymouth | cut -d= -f2)" || error -e "This installer only works with one of the following OSs:\n$(printf '\t%s\n' "${COMPATIBLE_OS[@]}")\nCall with --skip-os-checks if you want to proceed."
         for path in "$CONFIG_PATH" /var/lib/locales/supported.d/ /usr/share/i18n/SUPPORTED; do
                 test -e "$path" || error "Path $path does not exist!"
         done
@@ -679,11 +680,10 @@ if ! is_enabled "$param_skipos"; then
                 test "$(echo "$command" | wc -w)" -eq 1 && command="$command --help"
                 $command >/dev/null 2>&1 || error "Program $(echo $command | cut -d' ' -f1) is required!"
         done
-        test ! -L "$default_profile_path" && error "Path $default_profile_path is not a softlink. Delete it or symlink it to the current profile."
+        test -e "$default_profile_path" -a ! -L "$default_profile_path" && error "Path $default_profile_path is not a softlink. Delete it or symlink it to the current profile."
         test "$CPU_MIN" -gt "$(nproc --all)" && error "The system must have at least $CPU_MIN CPU cores"
         test "$(echo "$RAM_MIN" | numfmt --from=si)" -gt "$(("$(cat /proc/meminfo | grep MemTotal | head -1 | awk '{ print $2 }')" * 1000))" && error "The system must have at least $RAM_MIN total RAM"
         test "$(echo "$VRAM_MIN" | numfmt --from=si)" -gt "$(lspci -vvnn  | grep -Pzo "(?s)\[03.*?\sprefetchable\) \K\[size=(\d+)M\]" | head -1 | sed -E 's/^.*\[size=([0-9KMG]+)\].*$/\1/' | numfmt --from=iec)" && error "The system must have at least $VRAM_MIN graphics memmory"
-        grep -qiE "direct rendering:[[:space:]]+Yes" /var/log/Xorg.0.log && echo "Warning: 3D acceleration is usually problematic, it is recommended to disable it"
 fi
 
 # Load settings
@@ -692,7 +692,7 @@ fi
 
 # Load default values
 for varname in OISETUP_PROFILE LOCALE PERSISTENT_DIRNAME PROCTOR_USERNAME PROCTOR_DIFF_IGNORE DNS_LOCKDOWN DNS_LOCKDOWN_INTERFACE; do
-        test -z "${!varname}" &&  printf -v "$varname" "%d" "${!DEFAULT_${varname}}"
+        test -z "${!varname}" && default_varname="DEFAULT_$varname" && printf -v "$varname" "%s" "${!default_varname}"
 done
 
 # Check settings
@@ -743,7 +743,7 @@ is_enabled "$param_configos" && configure_contestant_env
 # Perform settings
 echo "Contest: $CONTEST_NAME"
 
-test -n "$DEFAULT_PROCTOR_SHADOW" && update_system_password "$DEFAULT_PROCTOR_USERNAME" "$DEFAULT_PROCTOR_SHADOW"
+test -n "$PROCTOR_USER_SHADOW" && update_system_password "$PROCTOR_USERNAME" "$PROCTOR_USER_SHADOW"
 
 if is_enabled "$APT_PACKAGES"; then install_apt_packages "$APT_PACKAGES"; else remove_apt_packages ALL; fi
 if is_enabled "$PIP_PACKAGES"; then install_pip_packages "$PIP_PACKAGES"; else remove_pip_packages ALL; fi
@@ -779,7 +779,7 @@ host_cleanup
 vm_version_update
 
 # Save profile as current profile
-ln -sf "$profile_path" "$default_profile_path"
+test "$profile_path" != "$default_profile_path" && ln -sf "$profile_path" "$default_profile_path"
 
 # No more disk changes left, defrag if requested
 if is_enabled "$param_defrag"; then defragment_disk; else defragment_notice; fi
