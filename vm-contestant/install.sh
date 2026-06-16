@@ -39,7 +39,7 @@ if test -d "$REPO_PATH/vm-proctor"; then
 fi
 
 # Link/Copy files
-dir="$(dirname "$0")"
+dir="$REPO_PATH/vm-contestant"
 for path in $(find "$dir" -type f); do
         pathdir="$(dirname "$path")"
 	test "$pathdir" = "$dir" && continue # Skip files in the root

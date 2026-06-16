@@ -32,6 +32,7 @@ All VM–proctor communication goes through a TAP-over-HTTP tunnel (`httptun`). 
 ```
 vm-proctoring/
 ├── vm-contestant/           # Files to install on each contestant VM
+│   ├── install.sh               # Installs the files on the system
 │   ├── etc/
 │   │   ├── oisetup/profiles/oi      # Example contest profile
 │   │   └── systemd/system/          # Systemd service units
@@ -187,7 +188,8 @@ SSH uses key-based auth (`vmkey.pwd` on the proctor, corresponding public key in
 `oisetup` is the main setup script, run as root. It idempotently configures the VM from a profile file in `/etc/oisetup/profiles/`.
 º
 **Invocations**:
-- `sudo oisetup <profilename>` — full setup: installs packages, sets locale, configures all features, cleans browser history/logs.
+- `sudo oisetup <profilename> -i -c` — full system install and proctoring setup: installs proctoring system, sets up the contestant environment,  packages, sets locale, configures all features, cleans browser history/logs.
+- `sudo oisetup <profilename>` — full proctoring setup: installs packages, sets locale, configures all features, cleans browser history/logs.
 - `sudo oisetup` — refresh mode: re-applies the current (`default`) profile without clearing contestant data or running `host_cleanup`.
 - `sudo oisetup_config [-r <prop>] [-u <prop> <val>] [-f]` — read/update a single property in the profile. With `-f`, immediately re-runs `oisetup` after the edit.
 
@@ -206,6 +208,7 @@ SSH uses key-based auth (`vmkey.pwd` on the proctor, corresponding public key in
 12. Enables/disables DNS lockdown.
 13. Saves the VM version timestamp to `/etc/vm_version`.
 14. Updates the `default` symlink in profiles to point to this profile.
+15. Sets up the OS for a contestant-optimized environment
 
 **Profile location**: `/etc/oisetup/profiles/`. The active profile is the file that `default` symlinks to. An example profile is at `vm-contestant/etc/oisetup/profiles/oi`.
 
