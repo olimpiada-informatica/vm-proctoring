@@ -77,7 +77,7 @@ function update_from_repo {
                         git -C "$REPO_PATH" pull && repo_updated="true"
                 fi
                 if test -n "$repo_updated"; then
-                        exec -- "$0" $@ --skip-respawn # Rerun this script in case it has been updated in repo
+                        exec -- "$0" "$@" --skip-respawn # Rerun this script in case it has been updated in repo
                         exit 0
                 fi
         fi
@@ -727,7 +727,7 @@ test -n "$DNS_LOCKDOWN_ALLOWLIST" -o -n "$DNS_LOCKDOWN_WHITELIST" && for domain 
 dns-lockdown stop 2>/dev/null
 
 # Update from the repo
-is_enabled "$param_gitpull" && update_from_repo
+is_enabled "$param_gitpull" && update_from_repo "$@"
 
 ! test -d "$REPO_PATH/vm-contestant" && error "$REPO_NAME repository not found in $REPO_PATH. Call with --gitpull to download it."
 
