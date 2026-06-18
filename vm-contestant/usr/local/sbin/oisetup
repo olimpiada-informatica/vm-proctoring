@@ -794,7 +794,7 @@ function host_cleanup {
         find /var/log -type f -delete 2>/dev/null
         find /var/lib/snapd/cache/ -type f -delete 2>/dev/null
         find "/home/$PROCTOR_USERNAME/.local/share/Trash" -type f -delete 2>/dev/null
-        snap list --all 2>/dev/null | awk '/disabled/{print $1, $3}' | while read snapname revision; do snap remove "$snapname" --revision="$revision"; done
+        which snap >/dev/null && snap list --all 2>/dev/null | awk '/disabled/{print $1, $3}' | while read snapname revision; do snap remove "$snapname" --revision="$revision"; done
         rm -f "/home/$PROCTOR_USERNAME/.bash_history"* /root/.bash_history "/home/$PROCTOR_USERNAME/.lesshst" "/home/$PROCTOR_USERNAME/.python_history" "/homm/$PROCTOR_USERNAME/.viminfo" "/home/$PROCTOR_USERNAME/.xsession-errors"* "/home/$PROCTOR_USERNAME/.wget-hsts" 2>/dev/null
         rm -rf "/home/$PROCTOR_USERNAME/.vscode" "/home/$PROCTOR_USERNAME/.config/Code/" "/home/$PROCTOR_USERNAME/.cache/mozilla" 2>/dev/null
         find /var/tmp -type f -delete 2>/dev/null
