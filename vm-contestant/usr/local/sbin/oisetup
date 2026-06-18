@@ -130,7 +130,7 @@ EOF
         # Allow SSH connections into oi user
         apt-get install -y ssh
         remove_custom_lines /etc/ssh/ssh_config.d/oi.conf true
-        cat >> /etc/ssh/ssh_config.d/oi.conf << EOF
+        cat > /etc/ssh/ssh_config.d/oi.conf << EOF
 PermitRootLogin no # $CUSTOM_LINE_COMMENT
 UseDNS no # $CUSTOM_LINE_COMMENT
 PasswordAuthentication no # $CUSTOM_LINE_COMMENT
@@ -154,13 +154,13 @@ EOF
         # Reset guest user on every reboot
         contestant_uid="$(id -u "$CONTESTANT_USERNAME")"
         contestant_gid="$(id -g "$CONTESTANT_USERNAME")"
-        cat >> /usr/local/sbin/contestant-reset << EOF
+        cat > /usr/local/sbin/contestant-reset << EOF
 #!/bin/bash
 loginctl terminate-user "$CONTESTANT_USERNAME" 2>/dev/null
 pkill -KILL -u "$CONTESTANT_USERNAME" 2>/dev/null
 rm -rf --one-file-system -- "/home/$CONTESTANT_USERNAME" 2>/dev/null
 install -d -m 0700 -o "$contestant_uid" -g "$contestant_gid" "$/home/$CONTESTANT_USERNAME"
-cp -rTf /etc/oisetup/skel/ "$/home/$CONTESTANT_USERNAME/"
+cp -rTf /etc/oisetup/skel/ "/home/$CONTESTANT_USERNAME/"
 chown "$contestant_uid:$contestant_gid" -R "$/home/$CONTESTANT_USERNAME"
 EOF
         chmod 755 /usr/local/sbin/contestant-reset
