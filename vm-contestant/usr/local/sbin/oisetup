@@ -88,9 +88,8 @@ function configure_contestant_env {
         apt-get update -y
         apt-get upgrade -y
 
-        # Remove boot menu # ToDo
-        remove_custom_lines /etc/default/grub true
-        echo "GRUB_HIDDEN_TIMEOUT_QUIET=true" >> /etc/default/grub
+        # Remove boot menu
+        echo "GRUB_HIDDEN_TIMEOUT_QUIET=true" > /etc/default/grub.d/10_no-menu.cfg
         update-grub
 
         # Timezone
@@ -204,9 +203,6 @@ EOF
         apt-get update
         apt-get install -y firefox
         /usr/bin/xdg-settings set default-web-browser firefox.desktop
-        # Disable AppArmor so firefox works correctly in guest session
-        sed -i 's/^GRUB_CMDLINE_LINUX=""/GRUB_CMDLINE_LINUX="apparmor=0"/' /etc/default/grub
-        update-grub
 
         # Install (de)compression tool integrated with file namanger
         apt-get install -y thunar-archive-plugin
@@ -334,7 +330,7 @@ function default_locale {
 function enable_guest_session {
 
         # Boot into guest user (all settings are lost at logoff)
-        cat << EOF > /etc/lightdm/lightdm.conf.d/50-autologin-contestant.conf
+        cat << EOF > /etc/lightdm/lightdm.conf.d/50_autologin-contestant.conf
 [Seat:*]
 autologin-user=$CONTESTANT_USERNAME
 autologin-user-timeout=0
@@ -347,7 +343,7 @@ EOF
 
 function disable_guest_session {
 
-        rm -f /etc/lightdm/lightdm.conf.d/50-autologin-contestant.conf
+        rm -f /etc/lightdm/lightdm.conf.d/50_autologin-contestant.conf
 
         systemctl disable contestant-reset >/dev/null
 
@@ -419,7 +415,7 @@ Exec=/usr/local/bin/contestant-welcome
 OnlyShowIn=XFCE;
 X-GNOME-Autostart-enabled=true
 EOF
-        cat << EOF > /etc/lightdm/lightdm.conf.d/60-enable-lock-message.conf
+        cat << EOF > /etc/lightdm/lightdm.conf.d/60_enable-lock-message.conf
 [Seat:*]
 greeter-setup-script=/usr/local/sbin/lock-message.sh
 EOF
@@ -430,7 +426,7 @@ function disable_persistent_storage {
 
         echo "Disabling persistent storage for guest user"
 
-        rm -f /etc/lightdm/lightdm.conf.d/60-enable-lock-message.conf
+        rm -f /etc/lightdm/lightdm.conf.d/60_enable-lock-message.conf
 
         clear_persistent_storage
 
@@ -785,8 +781,8 @@ function update_system_password {
 function lock_cleanup {
 
         echo "Cleaning up the lock"
-        mv /etc/lightdm/lightdm.conf.d/60-enable-lock-message.conf /etc/lightdm/lightdm.conf.d/60-enable-lock-message.conf.disable 2>/dev/null
-        mv /etc/lightdm/lightdm.conf.d/50-autologin-contestant.conf.disable /etc/lightdm/lightdm.conf.d/50-autologin-autologin.conf 2>/dev/null
+        mv /etc/lightdm/lightdm.conf.d/60_enable-lock-message.conf /etc/lightdm/lightdm.conf.d/60_enable-lock-message.conf.disable 2>/dev/null
+        mv /etc/lightdm/lightdm.conf.d/50_autologin-contestant.conf.disable /etc/lightdm/lightdm.conf.d/50_autologin-autologin.conf 2>/dev/null
 
 }
 

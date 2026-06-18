@@ -197,7 +197,7 @@ SSH uses key-based auth (`vmkey.pwd` on the proctor, corresponding public key in
 1. Sets password for the native proctor user (`oi`) if `NATIVE_PROCTOR_SHADOW` is set.
 2. Installs/uninstalls APT and pip packages.
 3. Installs locales, sets default locale and keyboard layout.
-4. Enables/disables LightDM contestant session (`50-autologin-contestant.conf`).
+4. Enables/disables LightDM contestant session (`50_autologin-contestant.conf`).
 5. Disables screen lock (`98noscreenlock` in X session).
 6. Sets up persistent storage (`/var/guest-data/` + fstab for USB if `PERSISTENT_EXTERNAL=true`).
 7. Writes Firefox policies (`/etc/firefox/policies/policies.json`): homepage, bookmarks, extensions, DNS-over-HTTPS disabled.
@@ -323,8 +323,8 @@ Config files in `/etc/dns-lockdown/`:
 The contestant's home is `/home/contestant`, which is a symlink managed by LightDM's guest session mechanism (`/etc/guest-session/prefs.sh`). The actual session directory is a temporary directory that LightDM creates at login.
 
 **VM Lock/Unlock**: `oiproctor lock` works by renaming config files:
-- Moves `60-enable-lock-message.conf.disable` → `60-enable-lock-message.conf` (shows the lock message at the greeter)
-- Moves `50-autologin-autologin.conf` → `40-autologin-autologin.conf.disable` (disables guest auto-login)
+- Moves `60_enable-lock-message.conf.disable` → `60_enable-lock-message.conf` (shows the lock message at the greeter)
+- Moves `50_autologin-contestant.conf` → `50_autologin-contestant.conf.disable` (disables guest auto-login)
 - Restarts lightdm
 
 When locked, the `lock-message.sh` script is configured as the greeter's session and loops calling `zenity` to show the lock message. `oiproctor unlock` reverses the file renames and restarts lightdm.

@@ -282,12 +282,12 @@ case "$command" in
 
     lock)
         shift
-        run_in_vm "$destination" sudo mv /etc/lightdm/lightdm.conf.d/60-enable-lock-message.conf.disable /etc/lightdm/lightdm.conf.d/60-enable-lock-message.conf "&&" sudo mv /etc/lightdm/lightdm.conf.d/50-autologin-contestant.conf /etc/lightdm/lightdm.conf.d/50-autologin-contestant.conf.disable "&&" sudo systemctl restart lightdm "2>&1"
+        run_in_vm "$destination" sudo mv /etc/lightdm/lightdm.conf.d/60_enable-lock-message.conf.disable /etc/lightdm/lightdm.conf.d/60_enable-lock-message.conf "&&" sudo mv /etc/lightdm/lightdm.conf.d/50_autologin-contestant.conf /etc/lightdm/lightdm.conf.d/50_autologin-contestant.conf.disable "&&" sudo systemctl restart lightdm "2>&1"
         ;;
 
     unlock)
         shift
-        run_in_vm "$destination" sudo mv /etc/lightdm/lightdm.conf.d/60-enable-lock-message.conf /etc/lightdm/lightdm.conf.d/60-enable-lock-message.conf.disable "&&" sudo mv /etc/lightdm/lightdm.conf.d/50-autologin-contestant.conf.disable /etc/lightdm/lightdm.conf.d/50-autologin-contestant.conf "&&" sudo systemctl restart lightdm "2>&1"
+        run_in_vm "$destination" sudo mv /etc/lightdm/lightdm.conf.d/60_enable-lock-message.conf /etc/lightdm/lightdm.conf.d/60_enable-lock-message.conf.disable "&&" sudo mv /etc/lightdm/lightdm.conf.d/50_autologin-contestant.conf.disable /etc/lightdm/lightdm.conf.d/50_autologin-contestant.conf "&&" sudo systemctl restart lightdm "2>&1"
         ;;
 
     tell)
