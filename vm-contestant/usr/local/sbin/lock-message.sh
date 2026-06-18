@@ -1,6 +1,6 @@
 #!/bin/sh
 
-CONFIGFILE="/etc/oisetup/lock_message.conf"
+CONFIGFILE="/etc/oisetup/lock-message.conf"
 
 while true; do
 	title="$(grep -e '^title=' "$CONFIGFILE" 2>/dev/null | cut -d= -f2)"

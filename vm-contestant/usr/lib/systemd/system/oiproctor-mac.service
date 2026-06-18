@@ -2,7 +2,7 @@
 Description=OI Proctor random MAC
 [Service]
 Type=oneshot
-ExecStart=/usr/local/sbin/oiproctor_mac
+ExecStart=/usr/local/sbin/oiproctor-mac
 [Install]
 WantedBy=multi-user.target
 

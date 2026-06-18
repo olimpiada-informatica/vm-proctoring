@@ -9,7 +9,7 @@ DISK_LIMIT="95"
 TARGET="10.9.0.1"
 OSD_FORCE_REFRESH=60
 CONFIG_PATH="/etc/oisetup"
-OIPROCTOR_MAC_PATH="/etc/oisetup/oiproctor_mac.installed"
+OIPROCTOR_MAC_PATH="/etc/oisetup/oiproctor-mac.installed"
 TUNNEL_CACHE_PATH="/tmp/tap0cache"
 
 function screen_size {
@@ -30,7 +30,7 @@ function get_user {
 }
 
 function get_contest_user {
-	sudo get_cms_user
+	sudo get-cms-user
 }
 
 function get_message {

@@ -88,7 +88,7 @@ function configure_contestant_env {
         apt-get update -y
         apt-get upgrade -y
 
-        # Remove boot menu
+        # Remove boot menu # ToDo
         remove_custom_lines /etc/default/grub true
         echo "GRUB_HIDDEN_TIMEOUT_QUIET=true" >> /etc/default/grub
         update-grub
@@ -151,16 +151,16 @@ EOF
         #usermod -aG sudo "$CONTESTANT_USERNAME" # ToDo
         test ! -d /etc/oisetup/skel/ && mkdir /etc/oisetup/skel/
 
-        # Reset guest user on every login
+        # Reset guest user on every reboot
         contestant_uid="$(id -u "$CONTESTANT_USERNAME")"
         contestant_gid="$(id -g "$CONTESTANT_USERNAME")"
         cat >> /usr/local/sbin/contestant-reset << EOF
 #!/bin/bash
 loginctl terminate-user "$CONTESTANT_USERNAME" 2>/dev/null
-pkill -KILL -u "$CONTESTANT_USERNAME" 2>/dev/null 
+pkill -KILL -u "$CONTESTANT_USERNAME" 2>/dev/null
 rm -rf --one-file-system -- "/home/$CONTESTANT_USERNAME" 2>/dev/null
 install -d -m 0700 -o "$contestant_uid" -g "$contestant_gid" "$/home/$CONTESTANT_USERNAME"
-cp -rTf /etc/oisetup/skel/ "$/home/$CONTESTANT_USERNAME"/
+cp -rTf /etc/oisetup/skel/ "$/home/$CONTESTANT_USERNAME/"
 chown "$contestant_uid:$contestant_gid" -R "$/home/$CONTESTANT_USERNAME"
 EOF
         chmod 755 /usr/local/sbin/contestant-reset
@@ -334,19 +334,22 @@ function default_locale {
 function enable_guest_session {
 
         # Boot into guest user (all settings are lost at logoff)
-        cat << EOF > /etc/lightdm/lightdm.conf.d/50-enable-guest.conf
+        cat << EOF > /etc/lightdm/lightdm.conf.d/50-autologin-contestant.conf
 [Seat:*]
 autologin-user=$CONTESTANT_USERNAME
 autologin-user-timeout=0
 autologin-session=xubuntu
-session-setup-script=/usr/local/sbin/contestant-reset
 EOF
+
+        systemctl enable contestant-reset >/dev/null
 
 }
 
 function disable_guest_session {
 
-        rm -f /etc/lightdm/lightdm.conf.d/50-enable-guest.conf
+        rm -f /etc/lightdm/lightdm.conf.d/50-autologin-contestant.conf
+
+        systemctl disable contestant-reset >/dev/null
 
 }
 
@@ -418,7 +421,7 @@ X-GNOME-Autostart-enabled=true
 EOF
         cat << EOF > /etc/lightdm/lightdm.conf.d/60-enable-lock-message.conf
 [Seat:*]
-greeter-setup-script=/usr/local/sbin/lock_message.sh
+greeter-setup-script=/usr/local/sbin/lock-message.sh
 EOF
 
 }
@@ -470,9 +473,9 @@ function remove_logo {
 function set_lock_message {
 
         echo "Setting up lock message"
-        echo "" > "$CONFIG_PATH/lock_message.conf"
+        echo "" > "$CONFIG_PATH/lock-message.conf"
         for param in title message width type options; do
-                echo "$param=$1" >> "$CONFIG_PATH/lock_message.conf"
+                echo "$param=$1" >> "$CONFIG_PATH/lock-message.conf"
                 shift
         done
 
@@ -653,7 +656,7 @@ function enable_httptun {
         chmod go-rwx "/home/$user/.ssh/authorized_keys"
         chown "$user:$user" "/home/$user/.ssh/authorized_keys"
 
-        echo "$DEFAULT_PROCTOR_DIFF_IGNORE $oiproctor_diff_ignore" | xargs | tr ' ' '\n' > "/home/$user/oiproctor_diff.ignore"
+        echo "$DEFAULT_PROCTOR_DIFF_IGNORE $oiproctor_diff_ignore" | xargs | tr ' ' '\n' > "/home/$user/oiproctor-diff.ignore"
 
         echo "ENABLED=1" > /etc/httptun
         echo "SERVER=\"$server\"" >> /etc/httptun
@@ -661,7 +664,7 @@ function enable_httptun {
 
         chmod go-rwx /etc/httptun
 
-        /usr/local/sbin/oiproctor_mac
+        /usr/local/sbin/oiproctor-mac
         systemctl restart httptun-launch >/dev/null
         systemctl restart httptun-keepalive >/dev/null
 
@@ -669,8 +672,8 @@ function enable_httptun {
 
         echo "$user" > "$CONFIG_PATH/proctor_user.installed"
 
-        systemctl enable oiproctor_mac >/dev/null
-        systemctl restart oiproctor_mac >/dev/null
+        systemctl enable oiproctor-mac >/dev/null
+        systemctl restart oiproctor-mac >/dev/null
         systemctl enable httptun-keepalive >/dev/null
         systemctl restart httptun-keepalive >/dev/null
         systemctl enable httptun-launch >/dev/null
@@ -691,7 +694,7 @@ function disable_httptun {
                 user="$(cat "$PROCTOR_USER_PATH")"
                 if test -n "$user"; then
                         rm -f "/etc/sudoers.d/$user"
-                        rm -f "/home/$user/oiproctor_diff.ignore"
+                        rm -f "/home/$user/oiproctor-diff.ignore"
                 fi
         fi
 
@@ -701,8 +704,8 @@ function disable_httptun {
         systemctl disable httptun-keepalive >/dev/null
         systemctl stop httptun-launch >/dev/null
         systemctl disable httptun-launch >/dev/null
-        systemctl stop oiproctor_mac >/dev/null
-        systemctl disable oiproctor_mac >/dev/null
+        systemctl stop oiproctor-mac >/dev/null
+        systemctl disable oiproctor-mac >/dev/null
 
         rm -f "$CONFIG_PATH/proctor_user.installed"
 
@@ -710,15 +713,15 @@ function disable_httptun {
 
 function enable_monitor {
 
-        systemctl enable oiproctor_monitor >/dev/null
-        systemctl restart oiproctor_monitor >/dev/null
+        systemctl enable oiproctor-monitor >/dev/null
+        systemctl restart oiproctor-monitor >/dev/null
 
 }
 
 function disable_monitor {
 
-        systemctl disable oiproctor_monitor >/dev/null
-        systemctl stop oiproctor_monitor >/dev/null
+        systemctl disable oiproctor-monitor >/dev/null
+        systemctl stop oiproctor-monitor >/dev/null
 
 }
 
@@ -782,8 +785,8 @@ function update_system_password {
 function lock_cleanup {
 
         echo "Cleaning up the lock"
-        mv /etc/lightdm/lightdm.conf.d/40-enable-lock-message.conf /etc/lightdm/lightdm.conf.d/40-enable-lock-message.conf.disable 2>/dev/null
-        mv /etc/lightdm/lightdm.conf.d/40-enable-guest.conf.disable /etc/lightdm/lightdm.conf.d/40-enable-guest.conf 2>/dev/null
+        mv /etc/lightdm/lightdm.conf.d/60-enable-lock-message.conf /etc/lightdm/lightdm.conf.d/60-enable-lock-message.conf.disable 2>/dev/null
+        mv /etc/lightdm/lightdm.conf.d/50-autologin-contestant.conf.disable /etc/lightdm/lightdm.conf.d/50-autologin-autologin.conf 2>/dev/null
 
 }
 
@@ -795,7 +798,7 @@ function host_cleanup {
         find /var/lib/snapd/cache/ -type f -delete 2>/dev/null
         find "/home/$PROCTOR_USERNAME/.local/share/Trash" -type f -delete 2>/dev/null
         which snap >/dev/null && snap list --all 2>/dev/null | awk '/disabled/{print $1, $3}' | while read snapname revision; do snap remove "$snapname" --revision="$revision"; done
-        rm -f "/home/$PROCTOR_USERNAME/.bash_history"* /root/.bash_history "/home/$PROCTOR_USERNAME/.lesshst" "/home/$PROCTOR_USERNAME/.python_history" "/homm/$PROCTOR_USERNAME/.viminfo" "/home/$PROCTOR_USERNAME/.xsession-errors"* "/home/$PROCTOR_USERNAME/.wget-hsts" 2>/dev/null
+        rm -f "/home/$PROCTOR_USERNAME/.bash_history"* /root/.bash_history "/home/$PROCTOR_USERNAME/.lesshst" "/home/$PROCTOR_USERNAME/.python_history" "/home/$PROCTOR_USERNAME/.viminfo" "/home/$PROCTOR_USERNAME/.xsession-errors"* "/home/$PROCTOR_USERNAME/.wget-hsts" 2>/dev/null
         rm -rf "/home/$PROCTOR_USERNAME/.vscode" "/home/$PROCTOR_USERNAME/.config/Code/" "/home/$PROCTOR_USERNAME/.cache/mozilla" 2>/dev/null
         find /var/tmp -type f -delete 2>/dev/null
         find /tmp -type f -delete 2>/dev/null
@@ -981,7 +984,7 @@ lock_cleanup
 host_cleanup
 
 # Update vm last update timestamp
-vm_version_update
+vm-version-update
 
 # Save profile as current profile
 test "$profile_path" != "$default_profile_path" && ln -sf "$profile_path" "$default_profile_path"

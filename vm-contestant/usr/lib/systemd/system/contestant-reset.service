@@ -1,0 +1,8 @@
+[Unit]
+Description=Contestant reset
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/contestant-reset
+[Install]
+WantedBy=multi-user.target
+

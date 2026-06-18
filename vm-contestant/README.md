@@ -51,19 +51,19 @@ Gestión del acceso a la red:
 - `dns-lockdown stop` Desactiva las restricciones de acceso a internet. Estos cambios tienen efecto inmediato, no se mantienen entre reinicios, no se mantienen después de `oisetup`
 
 Gestión de /etc/hosts:
-- `static_hosts -r <domain|ip>` Obtiene entradas de /etc/hosts. Las IPs se añaden automáticamente a la lista blanca. Estos cambios tienen efecto inmediato, se mantienen entre reinicios, no se mantienen después de `oisetup`
-- `static_hosts -u <domain> <ip>` Añade entradas a /etc/hosts. Las IPs se añaden automáticamente a la lista blanca. Estos cambios tienen efecto inmediato, se mantienen entre reinicios, no se mantienen después de `oisetup`
-- `static_hosts -d <domain|ip>...` Elimina entradas de /etc/hosts. Si las IPs estaban en la lista blanca NO se eliminan, puedes eliminarlas con el comando `dns-lockdown block <ip>...`. Estos cambios tienen efecto inmediato, se mantienen entre reinicios, no se mantienen después de `oisetup`
-- `static_hosts -c` Elimina todas las entradas de oisetup de /etc/hosts. Si las IPs estaban en la lista blanca NO se eliminan, puedes eliminarla con el comando `dns-lockdown block <ip>...`. Estos cambios tienen efecto inmediato, se mantienen entre reinicios, no se mantienen después de `oisetup`
+- `static-hosts -r <domain|ip>` Obtiene entradas de /etc/hosts. Las IPs se añaden automáticamente a la lista blanca. Estos cambios tienen efecto inmediato, se mantienen entre reinicios, no se mantienen después de `oisetup`
+- `static-hosts -u <domain> <ip>` Añade entradas a /etc/hosts. Las IPs se añaden automáticamente a la lista blanca. Estos cambios tienen efecto inmediato, se mantienen entre reinicios, no se mantienen después de `oisetup`
+- `static-hosts -d <domain|ip>...` Elimina entradas de /etc/hosts. Si las IPs estaban en la lista blanca NO se eliminan, puedes eliminarlas con el comando `dns-lockdown block <ip>...`. Estos cambios tienen efecto inmediato, se mantienen entre reinicios, no se mantienen después de `oisetup`
+- `static-hosts -c` Elimina todas las entradas de oisetup de /etc/hosts. Si las IPs estaban en la lista blanca NO se eliminan, puedes eliminarla con el comando `dns-lockdown block <ip>...`. Estos cambios tienen efecto inmediato, se mantienen entre reinicios, no se mantienen después de `oisetup`
 
 Gestión de la sesión:
-- `clean_persistent_dir` Vacía el directorio persistente
-- `get_cms_user` Obtiene el usuario identificado en CMS
+- `clean-persistent-dir` Vacía el directorio persistente
+- `get-cms-user` Obtiene el usuario identificado en CMS
 
 Gestión del la máquina virtual:
-- `vm_version_print` Muestra la versión de la máquina virtual
+- `vm-version-print` Muestra la versión de la máquina virtual
 - `oisetup [profile]` Configura el sistema con las restricciones del perfil. Estos cambios tienen efecto inmediato, y se mantienen entre reinicios
-- `oisetup_config [-p <profile>] [-f] [-r <property]... [-u <property> <value>]... [-d <property]...` Muestra o actualiza la configuración de `oisetup`. Con el parámetro `-f` los cambios tienen efecto inmediato, se mantienen entre reinicios, se mantienen después de `oisetup`
+- `oisetup-config [-p <profile>] [-f] [-r <property]... [-u <property> <value>]... [-d <property]...` Muestra o actualiza la configuración de `oisetup`. Con el parámetro `-f` los cambios tienen efecto inmediato, se mantienen entre reinicios, se mantienen después de `oisetup`
 
 Utilidades de usuario:
 - `run <code> [inputfile]` Compila y ejecuta el código, y opcionalmente le pasa un archivo de entrada a la ejecución
@@ -126,19 +126,19 @@ Network access management:
 - `dns-lockdown stop` Deactivates the internet access restrictions. These changes take effect immediately, do not persist across reboots, and are not kept after `oisetup`
 
 Managing /etc/hosts:
-- `static_hosts -r <domain|ip>` Retrieves entries from /etc/hosts. The IPs are automatically added to the allowlist. These changes take effect immediately, persist across reboots, and are not kept after `oisetup`
-- `static_hosts -u <domain> <ip>` Adds entries to /etc/hosts. The IPs are automatically added to the allowlist. These changes take effect immediately, persist across reboots, and are not kept after `oisetup`
-- `static_hosts -d <domain|ip>...` Removes entries from /etc/hosts. If the IPs were on the allowlist THEY ARE NOT REMOVED; you can remove them with the `dns-lockdown block <ip>...` command. These changes take effect immediately, persist across reboots, and are not kept after `oisetup`
-- `static_hosts -c` Removes all oisetup entries from /etc/hosts. If the IPs were on the allowlist THEY ARE NOT REMOVED; you can remove them with the `dns-lockdown block <ip>...` command. These changes take effect immediately, persist across reboots, and are not kept after `oisetup`
+- `static-hosts -r <domain|ip>` Retrieves entries from /etc/hosts. The IPs are automatically added to the allowlist. These changes take effect immediately, persist across reboots, and are not kept after `oisetup`
+- `static-hosts -u <domain> <ip>` Adds entries to /etc/hosts. The IPs are automatically added to the allowlist. These changes take effect immediately, persist across reboots, and are not kept after `oisetup`
+- `static-hosts -d <domain|ip>...` Removes entries from /etc/hosts. If the IPs were on the allowlist THEY ARE NOT REMOVED; you can remove them with the `dns-lockdown block <ip>...` command. These changes take effect immediately, persist across reboots, and are not kept after `oisetup`
+- `static-hosts -c` Removes all oisetup entries from /etc/hosts. If the IPs were on the allowlist THEY ARE NOT REMOVED; you can remove them with the `dns-lockdown block <ip>...` command. These changes take effect immediately, persist across reboots, and are not kept after `oisetup`
 
 Session management:
-- `clean_persistent_dir` Empties the persistent directory
-- `get_cms_user` Retrieves the user identified in the CMS
+- `clean-persistent-dir` Empties the persistent directory
+- `get-cms-user` Retrieves the user identified in the CMS
 
 Management of the virtual machine:
-- `vm_version_print` Displays the version of the virtual machine
+- `vm-version-print` Displays the version of the virtual machine
 - `oisetup [profile]` Configures the system with the restrictions of the profile
-- `oisetup_config [-p <profile>] [-f] [-r <property>... [-u <property> <value>]... [-d <property>...` Shows or updates the `oisetup` configuration. With the parameter `-f` these changes take effect immediately, persist across reboots, and persist after `oisetup`
+- `oisetup-config [-p <profile>] [-f] [-r <property>... [-u <property> <value>]... [-d <property>...` Shows or updates the `oisetup` configuration. With the parameter `-f` these changes take effect immediately, persist across reboots, and persist after `oisetup`
 
 User utilities:
 - `run <code> [inputfile]` Compiles and runs the code, and optionally passes an input file to the execution

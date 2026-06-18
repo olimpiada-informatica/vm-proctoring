@@ -13,11 +13,11 @@ Contestant laptop
            ├── Firefox (contestant works here)
            ├── dns-lockdown (iptables firewall)
            ├── httptun client (TAP tunnel to OI Proctor over HTTPS)
-           └── oiproctor_monitor (status OSD, loop reporting to OI Proctor via TAP tunnel)
+           └── oiproctor-monitor (status OSD, loop reporting to OI Proctor via TAP tunnel)
 Contest server (Docker container, vm-proctor)
  ├── nginx (TLS termination + reverse proxy)
  ├── httptun server (Python, TAP endpoint, port 8088, sitting behind nginx on port 443)
- ├── oiproctor_users_monitor (Node.js, status/alerts/CMS, port 81, sitting behind nginx on port 443)
+ ├── oiproctor-users-monitor (Node.js, status/alerts/CMS, port 81, sitting behind nginx on port 443)
  ├── dnsmasq (internal DNS for tunnel network)
  ├── shellinabox (web terminal at /admin, port 4200, sitting behind nginx on port 443)
  └── oiproctor (bash CLI for remote control of contestant VMs)
@@ -59,14 +59,14 @@ The container uses **supervisord** as PID 1 (`/opt/oiproctor/etc/supervisord.con
 
 | Program                   | Purpose                                                                   |
 |---------------------------|---------------------------------------------------------------------------|
-| `oiproctor_init.sh`       | First-run credential bootstrap                                            |
+| `oiproctor-init.sh`       | First-run credential bootstrap                                            |
 | `oiproctor start 3`       | httptun server (waits 3s for init)                                        |
-| `oiproctor_users_monitor` | CMS users status + alerts web server                                      |
-| `nginx`                   | TLS + reverse proxy to httptun, `oiproctor_users_monitor` and shellinabox |
+| `oiproctor-users-monitor` | CMS users status + alerts web server                                      |
+| `nginx`                   | TLS + reverse proxy to httptun, `oiproctor-users-monitor` and shellinabox |
 | `shellinabox`             | Web terminal on `/admin`                                                  |
 | `dnsmasq-refresh`         | Restarts dnsmasq periodically to keep it updated with /etc/hosts          |
 
-**`oiproctor_init.sh`** runs once at every container start (not just first) and:
+**`oiproctor-init.sh`** runs once at every container start (not just first) and:
 1. Patches `/etc/resolv.conf` to use `127.0.0.1` instead of Docker's internal resolver `127.0.0.11`, so dnsmasq handles all DNS.
 2. Creates `/opt/oiproctor/etc/tunnel.pwd` if missing — from `TUNNEL_PASS` env var or a random 44-char string printed to stdout. **This password must match `PROCTOR_TUNNEL_PASSWORD` in the VM profile.**
 3. Creates `/opt/oiproctor/etc/vmkey.pwd` (RSA keypair) if missing — from `VM_SSH_PASS` env var or auto-generated. **The public key (`vmkey.pwd.pub`) must be copied to `/home/oi/.ssh/authorized_keys` on every VM.**
@@ -105,13 +105,13 @@ A Python WSGI server running on port 8088 that implements a TAP-over-HTTP tunnel
 
 **Log**: every `/connect` request is appended to `/opt/oiproctor/log/httptun.log` with `timestamp remote_ip org_mac -> canonical_mac tunnel_ip`.
 
-### 3.4 Users Monitor (`bin/oiproctor_users_monitor`)
+### 3.4 Users Monitor (`bin/oiproctor-users-monitor`)
 
 A Node.js HTTP server on port 81 with an in-memory `users_map` of `{ips: {ip: {username, ip, timestamp}}, usernames: {username: ip}}`. On startup it tries to reload this map from `/opt/oiproctor/run/users`.
 
 **Four endpoints**:
 
-- **`GET /update?<contest_id>_login=<username>`**: Called every 5 seconds by each VM's `oiproctor_monitor`. Updates `users_map` in memory. Writes users_map to `run/users`. Sends SIGHUP to dnsmasq. Raises an alert if a known IP switches usernames, or if a known user appears from a new IP. Only accepts requests from IPs matching `^10\.9\.` (tunnel IPs only).
+- **`GET /update?<contest_id>_login=<username>`**: Called every 5 seconds by each VM's `oiproctor-monitor`. Updates `users_map` in memory. Writes users_map to `run/users`. Sends SIGHUP to dnsmasq. Raises an alert if a known IP switches usernames, or if a known user appears from a new IP. Only accepts requests from IPs matching `^10\.9\.` (tunnel IPs only).
 - **`GET /status`**: HTML status page. Shows all `CMS_USERS` as colored boxes: **green** (updated within `2 × ping_interval` seconds), **yellow** (seen before but not recently), **red** (never seen). Cached for `ping_interval/2` seconds.
 - **`GET /alerts`**: HTML page listing all alert messages (screen changes, disk warnings, IP switches, etc.) with timestamps.
 - **`GET /notify?msg=<text>`**: Adds an alert message from a VM. Only accepts tunnel IPs. Only accepts requests from IPs matching `^10\.9\.` (tunnel IPs only).
@@ -126,7 +126,7 @@ Configured via `/etc/dnsmasq.d/oiproctor` to serve as the internal DNS resolver 
 | `/opt/oiproctor/run/alias`       | `ip alias` | Human-readable aliases set with `oiproctor alias` |
 | `/opt/oiproctor/run/users`       | `ip user`  | CMS usernames as hostnames for tunnel IPs         |
 
-`dnsmasq-refresh` is a shell loop that HUPs dnsmasq every 60 seconds to pick up file changes. `oiproctor_users_monitor` also HUPs dnsmasq immediately on each user update.
+`dnsmasq-refresh` is a shell loop that HUPs dnsmasq every 60 seconds to pick up file changes. `oiproctor-users-monitor` also HUPs dnsmasq immediately on each user update.
 
 Because dnsmasq is also the container's local resolver (`/etc/resolv.conf` is patched to point to `127.0.0.1`), external DNS queries are forwarded to the upstream server defined at build time (`NAME_SERVER` build arg, default `8.8.8.8`).
 
@@ -152,30 +152,30 @@ The main control tool, invoked from the shellinabox web terminal at `/admin`. Re
 
 **Client-side commands** (commands that SSH into VMs using `parallel-ssh`/`scp`):
 
-| Command                          | Effect                                                                              |
-|----------------------------------|-------------------------------------------------------------------------------------|
-| `ping <dest>`                    | Ping VM(s), report alive/dead                                                       |
-| `ssh <dest>`                     | Open interactive SSH session (destination `all` not accepted)                       |
-| `put <dest> <path>`              | Copy file/directory to VM(s) into contestant account's home directory               |
-| `get <dest> <path>`              | Download file/directory from VM(s) into `oiproctor_get_<timestamp>/`                |
-| `allow <dest> <domain\|ip>`      | Add domain/IP to DNS allowlist on VM(s)                                             |
-| `block <dest> <domain\|ip>`      | Remove from DNS allowlist on VM(s)                                                  |
-| `addhost <dest> <hostname> <ip>` | Add to `/etc/hosts` and allowlist on VM(s)                                          |
-| `delhost <dest> <hostname>`      | Remove from `/etc/hosts` on VM(s)                                                   |
-| `disk <dest>`                    | Obtain VM's disk usage                                                              |
-| `uptime <dest>`                  | Obtain VM's uptime/CPU load                                                         |
-| `mem <dest>`                     | Obtain VM's available memory                                                        |
-| `lock <dest>`                    | Logs out and locks the VM (restart lightdm, disable guest login, show lock message) |
-| `unlock <dest>`                  | Disable locked status (re-enable guest login, restart lightdm)                      |
-| `tell <dest> <text>`             | Show info dialog (zenity) on VM screen                                              |
-| `alert <dest> <text>`            | Show red warning dialog on VM screen                                                |
-| `yesno <dest> <text>`            | Show yes/no dialog, prints YES or NO                                                |
-| `ask <dest> <text>`              | Show text entry dialog, prints response                                             |
-| `clean <dest>`                   | Kill all open zenity dialogs on VM                                                  |
-| `reset <dest>`                   | Restart lightdm (resets the contestant's user session)                              |
-| `diff <dest>`                    | List files added by the contestant to the home directory                            |
-| `cmd <dest> <...>`               | Run an arbitrary command on VM(s)                                                   |
-| `version <dest>`                 | Print VM version (`/etc/vm_version`)                                                |
+| Command                          | Effect                                                                                   |
+|----------------------------------|------------------------------------------------------------------------------------------|
+| `ping <dest>`                    | Ping VM(s), report alive/dead                                                            |
+| `ssh <dest>`                     | Open interactive SSH session (destination `all` not accepted)                            |
+| `put <dest> <path>`              | Copy file/directory to VM(s) into contestant account's home directory                    |
+| `get <dest> <path>`              | Download file/directory from VM(s) into `oiproctor_get_<timestamp>/`                     |
+| `allow <dest> <domain\|ip>`      | Add domain/IP to DNS allowlist on VM(s)                                                  |
+| `block <dest> <domain\|ip>`      | Remove from DNS allowlist on VM(s)                                                       |
+| `addhost <dest> <hostname> <ip>` | Add to `/etc/hosts` and allowlist on VM(s)                                               |
+| `delhost <dest> <hostname>`      | Remove from `/etc/hosts` on VM(s)                                                        |
+| `disk <dest>`                    | Obtain VM's disk usage                                                                   |
+| `uptime <dest>`                  | Obtain VM's uptime/CPU load                                                              |
+| `mem <dest>`                     | Obtain VM's available memory                                                             |
+| `lock <dest>`                    | Logs out and locks the VM (restart lightdm, disable contestant login, show lock message) |
+| `unlock <dest>`                  | Disable locked status (re-enable contestant login, restart lightdm)                      |
+| `tell <dest> <text>`             | Show info dialog (zenity) on VM screen                                                   |
+| `alert <dest> <text>`            | Show red warning dialog on VM screen                                                     |
+| `yesno <dest> <text>`            | Show yes/no dialog, prints YES or NO                                                     |
+| `ask <dest> <text>`              | Show text entry dialog, prints response                                                  |
+| `clean <dest>`                   | Kill all open zenity dialogs on VM                                                       |
+| `reset <dest>`                   | Reset the contestant user's profile and session                                          |
+| `diff <dest>`                    | List files added by the contestant to the home directory                                 |
+| `cmd <dest> <...>`               | Run an arbitrary command on VM(s)                                                        |
+| `version <dest>`                 | Print VM version (`/etc/vm_version`)                                                     |
 
 SSH uses key-based auth (`vmkey.pwd` on the proctor, corresponding public key in `/home/oi/.ssh/authorized_keys` on VMs). `StrictHostKeyChecking=no` is used since tunnel IPs may be reassigned. All SSH sessions are recorded by `log-session` to `/opt/oiproctor/log/ssh/`.
 
@@ -191,18 +191,18 @@ SSH uses key-based auth (`vmkey.pwd` on the proctor, corresponding public key in
 - `sudo oisetup <profilename> -i -c` — full system install and proctoring setup: installs proctoring system, sets up the contestant environment,  packages, sets locale, configures all features, cleans browser history/logs.
 - `sudo oisetup <profilename>` — full proctoring setup: installs packages, sets locale, configures all features, cleans browser history/logs.
 - `sudo oisetup` — refresh mode: re-applies the current (`default`) profile without clearing contestant data or running `host_cleanup`.
-- `sudo oisetup_config [-r <prop>] [-u <prop> <val>] [-f]` — read/update a single property in the profile. With `-f`, immediately re-runs `oisetup` after the edit.
+- `sudo oisetup-config [-r <prop>] [-u <prop> <val>] [-f]` — read/update a single property in the profile. With `-f`, immediately re-runs `oisetup` after the edit.
 
 **What `oisetup` configures** (in order):
 1. Sets password for the native proctor user (`oi`) if `NATIVE_PROCTOR_SHADOW` is set.
 2. Installs/uninstalls APT and pip packages.
 3. Installs locales, sets default locale and keyboard layout.
-4. Enables/disables LightDM guest session (`40-enable-guest.conf`).
+4. Enables/disables LightDM contestant session (`50-autologin-contestant.conf`).
 5. Disables screen lock (`98noscreenlock` in X session).
 6. Sets up persistent storage (`/var/guest-data/` + fstab for USB if `PERSISTENT_EXTERNAL=true`).
 7. Writes Firefox policies (`/etc/firefox/policies/policies.json`): homepage, bookmarks, extensions, DNS-over-HTTPS disabled.
 8. Sets logo (symlink in `/usr/share/plymouth/themes/xubuntu-logo/`).
-9. Writes the lock screen message to `/etc/oisetup/lock_message.conf`.
+9. Writes the lock screen message to `/etc/oisetup/lock-message.conf`.
 10. Enables/disables the httptun client (`/etc/httptun` config, systemd services).
 11. Sets static `/etc/hosts` entries (these entries are `# OISETUP` tagged).
 12. Enables/disables DNS lockdown.
@@ -227,7 +227,7 @@ This file is written by `oisetup` (permissions `600`).
 **Flow**:
 1. At boot, `httptun-launch.service` (`Restart=always`) calls `httptun-launch`, which reads `/etc/httptun` and runs `/usr/local/sbin/httptun/client.py`.
 2. `client.py` checks for `/tmp/tap0cache` (6-byte MAC + 4-byte IP, written on first successful connect). If present, it reuses that identity without a new `/connect` call — this means restarting the service within the same session doesn't change the tunnel IP.
-3. If no cache, reads the VM's MAC from `/etc/oisetup/oiproctor_mac.installed` (created by `/usr/local/sbin/oiproctor_mac`), POSTs `<mac_hex> <password>` to `/connect`, and receives its client MAC + IP to use in future exchanges inside the tunnel.
+3. If no cache, reads the VM's MAC from `/etc/oisetup/oiproctor-mac.installed` (created by `/usr/local/sbin/oiproctor-mac`), POSTs `<mac_hex> <password>` to `/connect`, and receives its client MAC + IP to use in future exchanges inside the tunnel.
 4. Creates a TAP device `tap0` configured with the assigned IP and `255.255.0.0` netmask.
 5. Spawns a sender thread (TAP → POST `/send`) and a receiver loop (POST `/recv` → TAP).
 6. On HTTP 403, removes `/tmp/tap0cache` and exits, triggering a service restart (which will re-register).
@@ -238,21 +238,21 @@ This file is written by `oisetup` (permissions `600`).
 
 The MAC address is the **identity** that the proctor uses to track a VM and preserve its tunnel IP across reconnections.
 
-**`oiproctor_mac`** (runs once at boot via `oiproctor_mac.service`):
-1. Reads the VM's hardware UUID via `get_vm_uuid` (`dmidecode --type system`).
-2. Reads the stored UUID from `/etc/oisetup/uuid.installed` and the stored MAC from `/etc/oisetup/oiproctor_mac.installed`.
+**`oiproctor-mac`** (runs once at boot via `oiproctor-mac.service`):
+1. Reads the VM's hardware UUID via `get-vm-uuid` (`dmidecode --type system`).
+2. Reads the stored UUID from `/etc/oisetup/uuid.installed` and the stored MAC from `/etc/oisetup/oiproctor-mac.installed`.
 3. **If UUID matches**: keeps the existing MAC. Same import = same MAC.
 4. **If UUID differs**: clears the MAC (the VM was re-imported/cloned), triggering generation of a new random MAC.
 5. Validates the MAC: rejects all-zeros, all-`FF`, and MACs with an odd second nibble (multicast bit). Regenerates until valid.
-6. Writes the new MAC to `/etc/oisetup/oiproctor_mac.installed` and the current UUID to `/etc/oisetup/uuid.installed`.
+6. Writes the new MAC to `/etc/oisetup/oiproctor-mac.installed` and the current UUID to `/etc/oisetup/uuid.installed`.
 
 **Consequence for tunnel IPs**:
 - VM **reboots** → same UUID → same MAC → proctor server restores same tunnel IP (if server's `connections` file has not been cleared).
 - VM **re-imported/cloned** → new UUID → new random MAC → new tunnel IP.
 
-### 4.4 oiproctor_monitor
+### 4.4 oiproctor-monitor
 
-A bash loop running every 5 seconds (`oiproctor_monitor.service`). Provides the on-screen display (OSD) and reports status to the proctor server via HTTP over the tunnel.
+A bash loop running every 5 seconds (`oiproctor-monitor.service`). Provides the on-screen display (OSD) and reports status to the proctor server via HTTP over the tunnel.
 
 **OSD**: Uses `osd_cat` to display `<mac_hex> <tunnel_ip_last_two_octets>` at the top center of the screen in grey. While the VM is not yet connected to the tunnel (no `tap0` IP), only the MAC is shown. The overlay auto-refreshes every 60 seconds.
 
@@ -264,7 +264,7 @@ A bash loop running every 5 seconds (`oiproctor_monitor.service`). Provides the 
 | Disk space alert         | `/notify?msg=<df line>`                 | POST   | When a partition exceeds 95% full |
 | CMS user login           | `/update?<contest_id>_login=<username>` | POST   | Every 5s if a user is logged in   |
 
-**CMS user detection** (`get_cms_user`):
+**CMS user detection** (`get-cms-user`):
 1. Reads `/etc/oisetup/cms_contest_id.installed` for the contest ID string (written by `oisetup`).
 2. Looks in the contestant's Firefox profile directory (`/home/contestant/.mozilla/firefox/*.default-release/`).
 3. First tries to read the `<contest_id>_login` cookie from `cookies.sqlite` (via `sqlite3`).
@@ -316,18 +316,18 @@ Config files in `/etc/dns-lockdown/`:
 
 ### 4.6 Session Management
 
-**Guest session**: LightDM is configured with `allow-guest=true; autologin-guest=true`. The guest session uses `/etc/guest-session/skel/` as the home skeleton. All data is wiped when the guest logs out — the contestant always starts fresh.
+**Guest session**: LightDM is configured with `autologin-user=contestant`. The contestant session uses `/etc/oisetup/skel/` as the home skeleton. All data is wiped when the contestant logs in — the contestant always starts fresh.
 
 **Persistent storage** (`/var/guest-data/`): if `PERSISTENT_STORAGE=true`, a symlink `~/oie` (or configured `PERSISTENT_DIRNAME`) is placed in the guest skel pointing to `/var/guest-data/`. This directory has ACLs granting full access to all its files and directories recursively to all users, so future guest logins (ie. VM reboot) maintain read/write access to its contents. If `PERSISTENT_EXTERNAL=true`, `/dev/sdb1` (USB stick) is mounted on `/var/guest-data/` via fstab (with `nofail`), so persistance of files can be guaranteed through VM corruption.
 
 The contestant's home is `/home/contestant`, which is a symlink managed by LightDM's guest session mechanism (`/etc/guest-session/prefs.sh`). The actual session directory is a temporary directory that LightDM creates at login.
 
 **VM Lock/Unlock**: `oiproctor lock` works by renaming config files:
-- Moves `40-enable-lock-message.conf.disable` → `40-enable-lock-message.conf` (shows the lock message at the greeter)
-- Moves `40-enable-guest.conf` → `40-enable-guest.conf.disable` (disables guest auto-login)
+- Moves `60-enable-lock-message.conf.disable` → `60-enable-lock-message.conf` (shows the lock message at the greeter)
+- Moves `50-autologin-autologin.conf` → `40-autologin-autologin.conf.disable` (disables guest auto-login)
 - Restarts lightdm
 
-When locked, the `lock_message.sh` script is configured as the greeter's session and loops calling `zenity` to show the lock message. `oiproctor unlock` reverses the file renames and restarts lightdm.
+When locked, the `lock-message.sh` script is configured as the greeter's session and loops calling `zenity` to show the lock message. `oiproctor unlock` reverses the file renames and restarts lightdm.
 
 ---
 
@@ -339,12 +339,12 @@ VM (10.9.0.2-10.9.255.254)                                         Proctor serve
 httptun client       ──HTTP POST /connect,/send,/recv───────────▶  httptun server
                                                                    (TAP, 10.9.0.0/16)
 
-oiproctor_monitor    ──HTTP GET /update?<contest>_login=<user>──▶  users_monitor
+oiproctor-monitor    ──HTTP GET /update?<contest>_login=<user>──▶  users_monitor
                      ──HTTP GET /notify?msg=<msg>───────────────▶  users_monitor (alerts)
 
 oiproctor (via SSH)  ◀──parallel-ssh/scp─────────────────────────  oiproctor CLI
    dns-lockdown
-   static_hosts
+   static-hosts
    lightdm control
    zenity dialogs
    df/uptime/free
@@ -363,14 +363,14 @@ This table answers "does this change survive X?" — the most critical reference
 | Profile settings (DNS, URLs, etc.)                             | **Yes**                                            | **No** (overwritten)                   | N/A                                                   |
 | `dns-lockdown allow/block` changes                             | **Yes** (edited allowlist files)                   | **No** (oisetup rewrites the files)    | N/A                                                   |
 | `dns-lockdown start/stop` (iptables state)                     | **No** (service re-applies on boot)                | **No**                                 | N/A                                                   |
-| `static_hosts -u/-d` changes                                   | **Yes** (edits `/etc/hosts`)                       | **No** (oisetup rewrites hosts)        | N/A                                                   |
+| `static-hosts -u/-d` changes                                   | **Yes** (edits `/etc/hosts`)                       | **No** (oisetup rewrites hosts)        | N/A                                                   |
 | Tunnel enabled/disabled (`/etc/httptun`)                       | **Yes**                                            | **No** (oisetup rewrites it)           | N/A                                                   |
-| Tunnel MAC (`oiproctor_mac.installed`)                         | **Yes** (same UUID)                                | **Yes**                                | N/A                                                   |
+| Tunnel MAC (`oiproctor-mac.installed`)                         | **Yes** (same UUID)                                | **Yes**                                | N/A                                                   |
 | Tunnel IP assignment on proctor                                | **Yes** (if proctor server is still up)            | **Yes**                                | **Yes** (unless `run/connections` is cleared)         |
 | CMS user→IP mapping                                            | **Yes** (monitor re-reports)                       | **Yes**                                | **Yes** (unless `run/users` is cleared)               |
 | Lock/Unlock state (lightdm conf files)                         | **Yes**                                            | **No** (oisetup runs `lock_cleanup`)   | N/A                                                   |
 | Persistent storage contents                                    | **Yes**                                            | **No** (except with refresh mode `-r`) | N/A                                                   |
-| Session data (contestant files)                                | **No** (wiped on guest logout)                     | N/A                                    | N/A                                                   |
+| Session data (contestant files)                                | **No** (wiped on contestant login)                 | N/A                                    | N/A                                                   |
 | Proctor credentials (`tunnel.pwd`, `vmkey.pwd`, `proctor.pwd`) | N/A                                                | N/A                                    | **Yes** (files in image, not in volume)               |
 | Proctor logs (`log/`)                                          | N/A                                                | N/A                                    | **Yes** (volume mount)                                |
 | Proctor settings (`run/`)                                      | N/A                                                | N/A                                    | **Yes** (volume mount)                                |
@@ -386,35 +386,35 @@ This table answers "does this change survive X?" — the most critical reference
 | `/etc/oisetup/profiles/<name>`          | Contest profile                     | IT staff                              |
 | `/etc/oisetup/profiles/default`         | Symlink to active profile           | `oisetup`                             |
 | `/etc/httptun`                          | Tunnel server URL + password        | `oisetup`                             |
-| `/etc/oisetup/oiproctor_mac.installed`  | VM's tunnel MAC address             | `oiproctor_mac` (at boot)             |
-| `/etc/oisetup/uuid.installed`           | VM UUID for MAC binding             | `oiproctor_mac` (at boot)             |
+| `/etc/oisetup/oiproctor-mac.installed`  | VM's tunnel MAC address             | `oiproctor-mac` (at boot)             |
+| `/etc/oisetup/uuid.installed`           | VM UUID for MAC binding             | `oiproctor-mac` (at boot)             |
 | `/etc/oisetup/cms_contest_id.installed` | CMS contest short name              | `oisetup`                             |
-| `/etc/oisetup/lock_message.conf`        | Lock screen message text            | `oisetup`                             |
+| `/etc/oisetup/lock-message.conf`        | Lock screen message text            | `oisetup`                             |
 | `/etc/dns-lockdown/config`              | DNS lockdown enabled + interface    | `oisetup`                             |
 | `/etc/dns-lockdown/domains.allowlist`   | Whitelisted domains                 | `oisetup`, `dns-lockdown allow/block` |
 | `/etc/dns-lockdown/ips.allowlist`       | Whitelisted IPs                     | `oisetup`, `dns-lockdown allow/block` |
-| `/etc/hosts`                            | Static name resolutions             | `oisetup`, `static_hosts`             |
+| `/etc/hosts`                            | Static name resolutions             | `oisetup`, `static-hosts`             |
 | `/etc/firefox/policies/policies.json`   | Firefox managed policy              | `oisetup`                             |
-| `/home/oi/oiproctor_diff.ignore`        | Regexp list for `oiproctor diff`    | `oisetup`                             |
+| `/home/oi/oiproctor-diff.ignore`        | Regexp list for `oiproctor diff`    | `oisetup`                             |
 | `/home/oi/.ssh/authorized_keys`         | SSH public key for proctor access   | IT staff (at VM prep)                 |
-| `/etc/vm_version`                       | Timestamp of last `oisetup` run     | `vm_version_update`                   |
+| `/etc/vm_version`                       | Timestamp of last `oisetup` run     | `vm-version-update`                   |
 | `/tmp/tap0cache`                        | Cached tunnel MAC+IP (session only) | `httptun/client.py`                   |
 
 ### 7.2 On the Proctor Server
 
 | File                                | Purpose                        | Written by                | Used by                                     |
 |-------------------------------------|--------------------------------|---------------------------|---------------------------------------------|
-| `oiproctor/etc/config`              | Default config values          | IT staff                  | `oiproctor_users_monitor`, `oiproctor`      |
+| `oiproctor/etc/config`              | Default config values          | IT staff                  | `oiproctor-users-monitor`, `oiproctor`      |
 | `oiproctor/etc/httptun`             | httptun config values          | IT staff, `oiproctor`     | `httptun`                                   |
-| `oiproctor/etc/tunnel.pwd`          | Tunnel shared password         | `oiproctor_init.sh`       | `httptun`                                   |
-| `oiproctor/etc/vmkey.pwd`           | SSH private key for VM access  | `oiproctor_init.sh`       | SSH                                         |
-| `oiproctor/etc/proctor.pwd`         | Web terminal password          | `oiproctor_init.sh`       | shellinabox                                 |
+| `oiproctor/etc/tunnel.pwd`          | Tunnel shared password         | `oiproctor-init.sh`       | `httptun`                                   |
+| `oiproctor/etc/vmkey.pwd`           | SSH private key for VM access  | `oiproctor-init.sh`       | SSH                                         |
+| `oiproctor/etc/proctor.pwd`         | Web terminal password          | `oiproctor-init.sh`       | shellinabox                                 |
 | `oiproctor/etc/https/*.pem`         | TLS certificate + key          | IT staff                  | nginx                                       |
 | `oiproctor/run/connections`         | MAC→IP map (hosts format)      | `httptun/server.py`       | dns, `httptun`, `oiproctor`                 |
-| `oiproctor/run/users`               | CMS user→IP map (hosts format) | `oiproctor_users_monitor` | dns, `oiproctor_users_monitor`, `oiproctor` |
+| `oiproctor/run/users`               | CMS user→IP map (hosts format) | `oiproctor-users-monitor` | dns, `oiproctor-users-monitor`, `oiproctor` |
 | `oiproctor/run/alias`               | IP→alias map (hosts format)    | `oiproctor alias`         | `oiproctor`                                 |
 | `oiproctor/log/httptun.log`         | Full connection history        | `server.py`               |                                             |
-| `oiproctor/log/oiproctor_users.log` | CMS user activity + alerts     | `oiproctor_users_monitor` |                                             |
+| `oiproctor/log/oiproctor-users.log` | CMS user activity + alerts     | `oiproctor-users-monitor` |                                             |
 | `oiproctor/log/ssh/`                | SSH session transcripts        | `log-session`             |                                             |
 | `.env`                              | Build-time + runtime overrides | IT staff                  |                                             |
 
@@ -440,7 +440,7 @@ To change a setting (e.g. add a bookmark or change a URL) without clearing conte
 
 ```bash
 # On the VM (or via oiproctor cmd):
-sudo oisetup_config -u BOOKMARKS '("example.com" "Example")' -f
+sudo oisetup-config -u BOOKMARKS '("example.com" "Example")' -f
 # -f triggers oisetup in refresh mode (no data wipe)
 ```
 
@@ -464,7 +464,7 @@ oiproctor lock all    # Logs out and disables guest login, restarts lightdm
 oiproctor unlock all  # Re-enables guest login, restarts lightdm
 ```
 
-The lock message text is configured in the profile (`LOCK_MESSAGE_BODY`) and written to `/etc/oisetup/lock_message.conf` by `oisetup`. It can be changed live by writing that file directly.
+The lock message text is configured in the profile (`LOCK_MESSAGE_BODY`) and written to `/etc/oisetup/lock-message.conf` by `oisetup`. It can be changed live by writing that file directly.
 
 ### 8.5 Identifying which contestant is at which VM
 
@@ -494,11 +494,12 @@ oiproctor get <ip> /home/contestant/oi/
 
 On each VM:
 ```bash
-clean_persistent_dir   # Wipes /var/guest-data/
+contestant-reset   # Wipes /home/contestant
+clean-persistent-dir   # Wipes /var/guest-data/
 ```
 Or from the proctor:
 ```bash
-oiproctor reset all    # Wipes VMs' /var/guest-data/ and restarts lightdm (kills active sessions)
+oiproctor reset all    # Wipes VMs' /var/guest-data/, reset the contestants' session and closes the contestant's lightdm session (kills active sessions)
 ```
 
 ### 8.9 Managing static hosts on a VM
@@ -536,7 +537,7 @@ Once as `oi`: `sudo -s`
 
 **`oiproctor active` shows stale entries**: Use `oiproctor ignore <ip>` to suppress them, or delete `run/connections` and restart the httptun server (`oiproctor stop && oiproctor start`).
 
-**CMS users not appearing on `/status`**: Verify the `CMS_CONTEST_SHORTNAME` matches exactly the `Name` field of the contest in CMS (case-sensitive). Verify `CMS_USERS` lists the exact usernames. The monitor only accepts updates from `10.9.x.x` IPs, so the tunnel must be active. Check `log/oiproctor_users.log` for activity.
+**CMS users not appearing on `/status`**: Verify the `CMS_CONTEST_SHORTNAME` matches exactly the `Name` field of the contest in CMS (case-sensitive). Verify `CMS_USERS` lists the exact usernames. The monitor only accepts updates from `10.9.x.x` IPs, so the tunnel must be active. Check `log/oiproctor-users.log` for activity.
 
 **DNS lockdown is too restrictive after oisetup**: Some required IPs may not be pre-resolvable at oisetup time (dynamic CDNs, etc.). Add them with `oiproctor allow all <domain>` or add to `DNS_LOCKDOWN_ALLOWLIST` in the profile.
 

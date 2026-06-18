@@ -13,7 +13,7 @@ from common import get_mac, BROADCAST, dequeue, parse_packets, serialize_packets
 from pytun import TunTapDevice, IFF_TAP
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
 
-OIPROCTOR_MAC_PATH = "/etc/oisetup/oiproctor_mac.installed"
+OIPROCTOR_MAC_PATH = "/etc/oisetup/oiproctor-mac.installed"
 
 requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 

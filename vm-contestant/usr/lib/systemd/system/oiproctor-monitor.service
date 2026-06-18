@@ -5,7 +5,7 @@ After=syslog.target network.target remote-fs.target nss-lookup.target
 [Service]
 Restart=on-failure
 RestartSec=5s
-ExecStart=/usr/local/sbin/oiproctor_monitor
+ExecStart=/usr/local/sbin/oiproctor-monitor
 
 [Install]
 WantedBy=multi-user.target

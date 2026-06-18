@@ -140,13 +140,13 @@ case "$command" in
 
     daemon)
         "$(dirname "$0")"/"$(basename "$0")" start &
-        "$(dirname "$0")"/oiproctor_users_monitor &
+        "$(dirname "$0")"/oiproctor-users-monitor &
         ;;
 
     stop)
         pid="$(get_daemon_pid)"
         test -n "$pid" && kill $pid || echo "Not running"
-        kill $(pgrep -f "$(dirname "$0")"/"$(basename "$0")") $(pgrep -f "$(dirname "$0")"/oiproctor_users_monitor) >/dev/null 2>&1
+        kill $(pgrep -f "$(dirname "$0")"/"$(basename "$0")") $(pgrep -f "$(dirname "$0")"/oiproctor-users-monitor) >/dev/null 2>&1
         ;;
 
     status)
@@ -260,12 +260,12 @@ case "$command" in
 
     addhost)
         shift 2
-        run_in_vm "$destination" sudo static_hosts -u "$1" "$2"
+        run_in_vm "$destination" sudo static-hosts -u "$1" "$2"
         ;;
 
     delhost)
         shift 2
-        run_in_vm "$destination" sudo static_hosts -d "$1" "$2"
+        run_in_vm "$destination" sudo static-hosts -d "$1" "$2"
         ;;
 
     disk)
@@ -282,12 +282,12 @@ case "$command" in
 
     lock)
         shift
-        run_in_vm "$destination" sudo mv /etc/lightdm/lightdm.conf.d/40-enable-lock-message.conf.disable /etc/lightdm/lightdm.conf.d/40-enable-lock-message.conf "&&" sudo mv /etc/lightdm/lightdm.conf.d/40-enable-guest.conf /etc/lightdm/lightdm.conf.d/40-enable-guest.conf.disable "&&" sudo systemctl restart lightdm "2>&1"
+        run_in_vm "$destination" sudo mv /etc/lightdm/lightdm.conf.d/60-enable-lock-message.conf.disable /etc/lightdm/lightdm.conf.d/60-enable-lock-message.conf "&&" sudo mv /etc/lightdm/lightdm.conf.d/50-autologin-contestant.conf /etc/lightdm/lightdm.conf.d/50-autologin-contestant.conf.disable "&&" sudo systemctl restart lightdm "2>&1"
         ;;
 
     unlock)
         shift
-        run_in_vm "$destination" sudo mv /etc/lightdm/lightdm.conf.d/40-enable-lock-message.conf /etc/lightdm/lightdm.conf.d/40-enable-lock-message.conf.disable "&&" sudo mv /etc/lightdm/lightdm.conf.d/40-enable-guest.conf.disable /etc/lightdm/lightdm.conf.d/40-enable-guest.conf "&&" sudo systemctl restart lightdm "2>&1"
+        run_in_vm "$destination" sudo mv /etc/lightdm/lightdm.conf.d/60-enable-lock-message.conf /etc/lightdm/lightdm.conf.d/60-enable-lock-message.conf.disable "&&" sudo mv /etc/lightdm/lightdm.conf.d/50-autologin-contestant.conf.disable /etc/lightdm/lightdm.conf.d/50-autologin-contestant.conf "&&" sudo systemctl restart lightdm "2>&1"
         ;;
 
     tell)
@@ -311,7 +311,7 @@ case "$command" in
         ;;
 
     reset)
-        run_in_vm "$destination" sudo clean_persistent_dir "2>&1" "||" fail "\"FAILED Cannot clean persistent dir" ";" sudo systemctl restart lightdm "2>&1" "||" fail "\"FAILED Cannot stop lightdm\""
+        run_in_vm "$destination" sudo systemctl restart contestant-reset "2>&1" "||" fail "\"FAILED Cannot reset contestant profile\"" ";" sudo clean-persistent-dir "2>&1" "||" fail "\"FAILED Cannot clean contestant persistent dir"
         ;;
 
     diff)
@@ -326,7 +326,7 @@ case "$command" in
         ;;
 
     version)
-        run_in_vm "$destination" vm_version_print
+        run_in_vm "$destination" vm-version-print
         ;;
 
     *)

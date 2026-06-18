@@ -229,7 +229,7 @@ If the contest has two sessions, between sessions:
 
 **On the VMs, if remote procedure fails:**
 
-1. Clean the persistent directory `clean_persistent_dir`
+1. Clean the contestant's profile `contestant-reset` and the persistent directory `clean-persistent-dir`
 
 2. Restart the VM.
 

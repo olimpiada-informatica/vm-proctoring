@@ -1,7 +1,7 @@
 #!/bin/bash
 CONFIG_PATH="/etc/oisetup"
 UUID_PATH="$CONFIG_PATH/uuid.installed"
-MAC_PATH="$CONFIG_PATH/oiproctor_mac.installed"
+MAC_PATH="$CONFIG_PATH/oiproctor-mac.installed"
 
 function is_invalid_mac() {
 	mac="$1"
@@ -11,7 +11,7 @@ function is_invalid_mac() {
 }
 
 base_uuid="$(cat "$UUID_PATH" 2>/dev/null)"
-vm_uuid="$(get_vm_uuid)"
+vm_uuid="$(get-vm-uuid)"
 mac="$(cat "$MAC_PATH" 2>/dev/null)"
 test "$vm_uuid" != "$base_uuid" && mac=""
 while is_invalid_mac "$mac"; do
