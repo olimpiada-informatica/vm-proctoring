@@ -43,19 +43,20 @@ dir="$REPO_PATH/vm-contestant"
 for path in $(find "$dir" -type f); do
         pathdir="$(dirname "$path")"
 	test "$pathdir" = "$dir" && continue # Skip files in the root
-	echo "$path" | grep -q '/.git' && continue # Skip GIT files
+	echo "$path" | grep -q '/.git' && continue # Skip git files
 	src="$(realpath "$path")"
 	dst="$(echo $path | cut -c "$(echo "$dir" | wc -c)"-)"
 	mkdir -p "$(dirname "$dst")"
 	test -z "$copy" && ln -sf "$src" "$dst" 2>/dev/null || cp -f "$src" "$dst" 2>/dev/null
 	test $? -ne 0 && error "Failed to install $src -> $dst. Aborting"
 done
+! test -d /etc/oisetup/logos && mkdir /etc/oisetup/logos && chmod a+rw /etc/oisetup/logos
 
 # Reload systemd daemon to load the installed files
 systemctl daemon-reload || error "Failed to reload systemd settings"
 
 # Ready
-test -z "$silent" && echo "You may now run: oisetup <profile>" # Only show if not called from `oisetup`
+test -z "$silent" && echo "You may now run: oisetup <profile> -i -c" # Only show if not called from `oisetup`
 
 # Return success for oisetup to continue
 true
