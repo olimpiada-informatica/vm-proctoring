@@ -161,7 +161,7 @@ pkill -KILL -u "$CONTESTANT_USERNAME" 2>/dev/null
 rm -rf --one-file-system -- "/home/$CONTESTANT_USERNAME" 2>/dev/null
 install -d -m 0700 -o "$contestant_uid" -g "$contestant_gid" "$/home/$CONTESTANT_USERNAME"
 cp -rTf /etc/oisetup/skel/ "/home/$CONTESTANT_USERNAME/"
-chown "$contestant_uid:$contestant_gid" -R "$/home/$CONTESTANT_USERNAME"
+chown "$contestant_uid:$contestant_gid" -R "/home/$CONTESTANT_USERNAME"
 EOF
         chmod 755 /usr/local/sbin/contestant-reset
 
