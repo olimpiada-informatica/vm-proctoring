@@ -50,7 +50,7 @@ for path in $(find "$dir" -type f); do
 	test -z "$copy" && ln -sf "$src" "$dst" 2>/dev/null || cp -f "$src" "$dst" 2>/dev/null
 	test $? -ne 0 && error "Failed to install $src -> $dst. Aborting"
 done
-! test -d /etc/oisetup/logos && mkdir /etc/oisetup/logos && chmod a+rw /etc/oisetup/logos
+! test -d /etc/oisetup/logos && mkdir /etc/oisetup/logos && chmod a+rx /etc/oisetup/logos
 
 # Reload systemd daemon to load the installed files
 systemctl daemon-reload || error "Failed to reload systemd settings"
