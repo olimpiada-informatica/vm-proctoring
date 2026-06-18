@@ -11,6 +11,7 @@ DEFAULT_PERSISTENT_DIRNAME="$DEFAULT_PROCTOR_USERNAME"
 DEFAULT_PROCTOR_DIFF_IGNORE="\.profile \.skip-guest-warning-dialog \.xsessionrc \.cache/.* \.config/Code/ \.config/gtk-3\.0/ \.config/pulse/ \.config/Thunar/ \.config/user-dirs\.dirs \.config/user-dirs\.locale \.config/xfce4/.* \.config/xubuntu/ \.config/xubuntu/xdg-xubuntu-templates\.cfg \.gnupg/ \.ICEauthority \.local/ \.local/share/ \.vboxclient-clipboard\.pid \.vboxclient-display-svga-x11\.pid \.vboxclient-draganddrop\.pid \.vboxclient-seamless\.pid \.config/Code/User/settings\.json \.vscode/argv\.json \.vscode-cli/ \.vscode/extensions/.* \.config/Code/.* \.mozilla/firefox/.* \.Xauthority \.xsession-errors \.xsession-errors\.old Desktop/ Documents/ Downloads/ Music/ Pictures/ Public/ Templates/ Videos/ Descargas/ Documentos/ Escritorio/ Imágenes/ Música/ Plantillas/ Público/ Vídeos/"
 DEFAULT_DNS_LOCKDOWN="edgecastcdn.net root-servers.net cdn.mozilla.net services.mozilla.com googleapis.com detectportal.firefox.com o.lencr.org spocs.getpockercom telemetry.mozilla.org ssl.gstatic.com ipv4only.arpa clients6.google.com dataops.mozgcp.net ocsp.digicert.com dscq.akamai.net l.google.com phicdn.net ocsp.pki.goog mozaws.net addons.mozilla.org cloudfront.net akamaiedge.net daisy.ubuntu.com in-addr.arpa ip6.arpa connectivity-check.ubuntu.com gstatic.com fonts.gstatic.com fonts.googleapis.com recaptcha.net www.recaptcha.net"
 DEFAULT_DNS_LOCKDOWN_INTERFACE="en+"
+DEFAULT_CONTESTANT_USERNAME="contestant"
 PERSISTENT_STORAGE_PATH="/var/guest-data"
 REPO_NAME="vm-proctoring"
 REPO_PATH="/opt/$REPO_NAME"
@@ -87,6 +88,11 @@ function configure_contestant_env {
         apt update -y
         apt upgrade -y
 
+        # Remove boot menu
+        remove_custom_lines /etc/defaults/grub true
+        echo "GRUB_HIDDEN_TIMEOUT_QUIET=true" >> /etc/defaults/grub
+        update-grub
+
         # Timezone
         test -n "$TIMEZONE" && timedatectl set-timezone "$TIMEZONE"
 
@@ -95,24 +101,19 @@ function configure_contestant_env {
         echo "SystemMaxUse=100M # $CUSTOM_LINE_COMMENT" >> /etc/systemd/journald.conf
         systemctl restart systemd-journald
 
-        # Disable os update norifications
+        # Disable greeter's session menu
+        for path in /usr/share/xsessions/* /usr/share/wayland-sessions/*; do
+                test "$(basename "$path")" = "xubuntu.desktop" && continue
+                test "$(echo "$path" | rev | cut -d. -f1 | rev)" = "disable" && continue
+                mv "$path" "$path".disable
+        done
+
+        # Disable OS update notifications
         remove_custom_lines /etc/update-manager/release-upgrades
         echo "Prompt=never # $CUSTOM_LINE_COMMENT" >> /etc/update-manager/release-upgrades
         grep -q Hidden=true /etc/xdg/autostart/update-notifier.desktop 2>/dev/null || (touch /etc/xdg/autostart/update-notifier.desktop && echo "Hidden=true" >> /etc/xdg/autostart/update-notifier.desktop)
 
         # Remove shutdown menu
-        mkdir -p /etc/guest-session/skel/.config/xfce4/xfconf/xfce-perchannel-xml/
-        cat > /etc/guest-session/skel/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-session.xml << EOF
-<?xml version="1.0" encoding="UTF-8"?>
-<channel name="xfce4-session" version="1.0">
-  <property name="shutdown" type="empty">
-    <property name="ShowSwitchUser" type="bool" value="false"/>
-    <property name="ShowHibernate" type="bool" value="false"/>
-    <property name="ShowSuspend" type="bool" value="false"/>
-    <property name="ShowHybridSleep" type="bool" value="false"/>
-  </property>
-</channel>
-EOF
         mkdir -p /etc/xdg/xfce4/kiosk
         cat > /etc/xdg/xfce4/kiosk/kioskrc << EOF
 [xfce4-session]
@@ -143,25 +144,62 @@ EOF
         sudo chown oi:oi -R "/home/$PROCTOR_USERNAME/.ssh"
         sudo chmod go-rwx -R "/home/$PROCTOR_USERNAME/.ssh"
 
-        # Guest user startup scripts
-        remove_custom_lines /etc/guest-session/prefs.sh true
-        echo "ln -sf $HOME /home/contestant # $CUSTOM_LINE_COMMENT" >> /etc/guest-session/prefs.sh
-        echo "adduser $USER guests # $CUSTOM_LINE_COMMENT" >> /etc/guest-session/prefs.sh
+        # Create guest user
+        if ! id "$CONTESTANT_USERNAME" >/dev/null 2>&1; then
+                adduser "$CONTESTANT_USERNAME" --disabled-password --add-extra-groups groups --comment Contestant
+        fi
+        test ! -d /etc/oisetup/skel/ && mkdir /etc/oisetup/skel/
 
-        # Boot into guest user (all settings are lost at logoff)
-        echo "[Seat:*]\nallow-guest=true\nautologin-guest=true" > /etc/lightdm/lightdm.conf.d/40-enable-guest.conf
-        echo "[Seat:*]\ngreeter-setup-script=/usr/local/sbin/lock_message.sh" > /etc/lightdm/lightdm.conf.d/40-enable-lock-message.conf.disable
+        # Reset guest user on every login
+        user_info="$(getent passwd "$CONTESTANT_USERNAME")"
+        contestant_home_dir="$(printf '%s' "$user_info" | cut -d: -f6)"
+        contestant_uid="$(id -u "$CONTESTANT_USERNAME")"
+        contestant_gid="$(id -g "$CONTESTANT_USERNAME")"
+        cat >> /usr/local/sbin/contestant-reset << EOF
+#!/bin/bash
+loginctl terminate-user "$CONTESTANT_USERNAME" 2>/dev/null
+pkill -KILL -u "$CONTESTANT_USERNAME" 2>/dev/null 
+rm -rf --one-file-system -- "$contestant_home_dir" 2>/dev/null
+install -d -m 0700 -o "$contestant_uid" -g "$contestant_gid" "$contestant_home_dir"
+cp -rf /etc/oisetup/skel/ "$contestant_home_dir"/
+chown "$contestant_uid:$contestant_gid" -R "$contestant_home_dir"
+EOF
+        chmod 755 /usr/local/sbin/contestant-reset
 
-        # Guest user init
-        test ! -d /etc/guest-session/skel/ && mkdir /etc/guest-session/skel/
+        # Boot into guest user (all settings are lost at logoff) (ToDo)
+        cat << EOF > /etc/lightdm/lightdm.conf.d/50-enable-guest.conf
+[Seat:*]
+autologin-user=$CONTESTANT_USERNAME
+autologin-user-timeout=0
+autologin-session=xubuntu
+session-setup-script=/usr/local/sbin/contestant-reset
+EOF
+        cat << EOF > /etc/lightdm/lightdm.conf.d/60-enable-lock-message.conf.disable
+[Seat:*]
+greeter-setup-script=/usr/local/sbin/lock_message.sh
+EOF
 
         # Enlarge processes stack and recursivity to equalize that of CMS evaluations
         cat > /etc/security/limits.d/30-stack.conf << EOF
 hard stack 262144
 soft stack 262144
 EOF
-        remove_custom_lines /etc/guest-session/skel/.profile true
-        echo "ulimit -s 262144 # $CUSTOM_LINE_COMMENT" >> /etc/guest-session/skel/.profile
+        remove_custom_lines /etc/oisetup/skel/.profile true
+        echo "ulimit -s 262144 # $CUSTOM_LINE_COMMENT" >> /etc/oisetup/skel/.profile
+        
+        # Remove shutdown menu
+        mkdir -p /etc/oisetup/skel/.config/xfce4/xfconf/xfce-perchannel-xml/
+        cat > /etc/oisetup/skel/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-session.xml << EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<channel name="xfce4-session" version="1.0">
+  <property name="shutdown" type="empty">
+    <property name="ShowSwitchUser" type="bool" value="false"/>
+    <property name="ShowHibernate" type="bool" value="false"/>
+    <property name="ShowSuspend" type="bool" value="false"/>
+    <property name="ShowHybridSleep" type="bool" value="false"/>
+  </property>
+</channel>
+EOF
 
         #s Install Firefox compatible with guest user. Ubuntu now ships firefox as a Snap, so we need to install it as a deb in order to prepopulate its configuration for the guest user
         apt autopurge -y chromium-browser
@@ -190,25 +228,40 @@ EOF
 
         # Default to C++17
         rm -f /bin/g++ /usr/bin/g++
-        echo -r '#!/bin/bash\nexec /bin/g++-11 -std=c++17 "$@"' > /bin/g++
+        cat << EOF > /bin/g++
+#!/bin/bash
+exec /bin/g++-11 -std=c++17 "$@"
+EOF
         chmod a+rx /bin/g++
         ln -f /bin/g++ /usr/bin/g++ 2>/dev/null # Not symbolic link, hard link
 
         # Install Sublime text
         apt install -y wget
         wget -qO- https://download.sublimetext.com/sublimehq-pub.gpg > /etc/apt/keyrings/sublimehq-pub.asc
-        echo -e 'Types: deb\nURIs: https://download.sublimetext.com/\nSuites: apt/stable/\nSigned-By: /etc/apt/keyrings/sublimehq-pub.asc' > /etc/apt/sources.list.d/sublime-text.sources
+        cat << EOF > /etc/apt/sources.list.d/sublime-text.sources
+Types: deb
+URIs: https://download.sublimetext.com/
+Suites: apt/stable/
+Signed-By: /etc/apt/keyrings/sublimehq-pub.asc
+EOF
         apt update
         apt install -y sublime-text
 
         # Install VSCode
         apt install -y gpg
         wget -qO- https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor --batch --yes -o /usr/share/keyrings/microsoft.gpg
-        echo -e "Types: deb\nURIs: https://packages.microsoft.com/repos/code\nSuites: stable\nComponents: main\nArchitectures: amd64,arm64,armhf\nSigned-By: /usr/share/keyrings/microsoft.gpg" > /etc/apt/sources.list.d/vscode.sources
+        cat << EOF > /etc/apt/sources.list.d/vscode.sources
+Types: deb
+URIs: https://packages.microsoft.com/repos/code
+Suites: stable
+Components: main
+Architectures: amd64,arm64,armhf
+Signed-By: /usr/share/keyrings/microsoft.gpg
+EOF
         apt update
         apt install -y code
-        mkdir -p /etc/guest-session/skel/.local/share/applications
-        cat > /etc/guest-session/skel/.local/share/applications/code.desktop << EOF
+        mkdir -p /etc/oisetup/skel/.local/share/applications
+        cat > /etc/oisetup/skel/.local/share/applications/code.desktop << EOF
 [Desktop Entry]
 Name=Visual Studio Code
 Comment=Code Editing. Redefined.
@@ -220,27 +273,15 @@ StartupNotify=false
 StartupWMClass=Code
 Categories=TextEditor;Development;IDE;
 MimeType=application/x-code-workspace;
-Actions=new-empty-window;
 Keywords=vscode;
-[Desktop Action new-empty-window]
-Name=New Empty Window
-Name[de]=Neues leeres Fenster
-Name[es]=Nueva ventana vacía
-Name[fr]=Nouvelle fenêtre vide
-Name[it]=Nuova finestra vuota
-Name[ja]=新しい空のウィンドウ
-Name[ko]=새 빈 창
-Name[ru]=Новое пустое окно
-Name[zh_CN]=新建空窗口
-Name[zh_TW]=開新空視窗
 Exec=/usr/share/code/code --no-sandbox --new-window %F
 Icon=vscode
 EOF
         code --install-extension ms-vscode.cpptools
         code --install-extension ms-python.python
         code --install-extension ms-vscode.cpptools
-        cp -r ~/.vscode /etc/guest-session/skel/.vscode
-        rm -f /etc/guest-session/skel/.vscode/argv.json
+        cp -r ~/.vscode /etc/oisetup/skel/.vscode
+        rm -f /etc/oisetup/skel/.vscode/argv.json
 
         # Remove unnecessary applications
         apt autopurge -y libreoffice-* thunderbird transmission-* xfburn pidgin
@@ -282,7 +323,7 @@ function install_locales {
                 last_lang="$lang"
         done > /etc/locale.gen
 
-        apt-get install -y $(echo "$language_packs" | xargs | tr ' ' '\n' | sort | uniq) >/dev/null
+        apt install -y $(echo "$language_packs" | xargs | tr ' ' '\n' | sort | uniq) >/dev/null
 
         locale-gen --purge
 
@@ -304,7 +345,11 @@ function default_locale {
 
 function enable_guest_session {
 
-        printf "[Seat:*]\nallow-guest=true\nautologin-guest=true" > /etc/lightdm/lightdm.conf.d/40-enable-guest.conf
+        cat << EOF > /etc/lightdm/lightdm.conf.d/40-enable-guest.conf
+[Seat:*]
+allow-guest=true
+autologin-guest=true
+EOF
 
 }
 
@@ -343,12 +388,12 @@ function enable_persistent_storage {
                 setfacl -d -m g::rwX "$PERSISTENT_STORAGE_PATH" &&
                 setfacl -d -m u::rwX "$PERSISTENT_STORAGE_PATH" &&
                 setfacl -d -m mask::rwx "$PERSISTENT_STORAGE_PATH"
-        ln -sf "$PERSISTENT_STORAGE_PATH" "/etc/guest-session/skel/$PERSISTENT_DIRNAME"
-        echo "cd \$HOME/$PERSISTENT_DIRNAME" > /etc/guest-session/skel/.bashrc
+        ln -sf "$PERSISTENT_STORAGE_PATH" "/etc/oisetup/skel/$PERSISTENT_DIRNAME"
+        echo "cd \$HOME/$PERSISTENT_DIRNAME" > /etc/oisetup/skel/.bashrc
         echo "$PERSISTENT_DIRNAME" > "$CONFIG_PATH"/persistent_storage_dirname.installed
 
-        mkdir -p /etc/guest-session/skel/.config/Code/User/
-        cat << EOF > /etc/guest-session/skel/.config/Code/User/settings.json
+        mkdir -p /etc/oisetup/skel/.config/Code/User/
+        cat << EOF > /etc/oisetup/skel/.config/Code/User/settings.json
 {
   "terminal.integrated.cwd": "/home/contestant/$PERSISTENT_DIRNAME",
   "files.autoSave": "afterDelay",
@@ -356,20 +401,30 @@ function enable_persistent_storage {
 }
 EOF
 
-        test -d /etc/guest-session/skel/Desktop || mkdir /etc/guest-session/skel/Desktop
-        ln -sf "$PERSISTENT_STORAGE_PATH" /etc/guest-session/skel/Desktop/"$PERSISTENT_DIRNAME"
+        test -d /etc/oisetup/skel/Desktop || mkdir /etc/oisetup/skel/Desktop
+        ln -sf "$PERSISTENT_STORAGE_PATH" /etc/oisetup/skel/Desktop/"$PERSISTENT_DIRNAME"
 
-        touch /etc/guest-session/skel/.skip-guest-warning-dialog
+        touch /etc/oisetup/skel/.skip-guest-warning-dialog
+        remove_custom_lines /usr/local/bin/contestant-welcome
+        ! test -f /usr/local/bin/contestant-welcome && echo '#!/bin/bash' > /usr/local/bin/contestant-welcome
         if test "$locale" = ca_ES -o "$locale" = ca; then
-        ! test -f /etc/guest-session/auto.sh && echo '#!/bin/bash' > /etc/guest-session/auto.sh
-        remove_custom_lines /etc/guest-session/auto.sh true
                 echo '{ sleep 4; zenity --warning --no-wrap --title="Usuari temporal" --text="Totes les dades creades seran eliminades\nen sortir, incloent les configuracions de les aplicacions.\n\nPer garantir que en cas de fallida del sistema\nno perdis els programes, desa els teus codis\nal directori '"$PERSISTENT_DIRNAME"'."; } & # '"$CUSTOM_LINE_COMMENT"
         elif test "$locale" = es_ES -o "$locale" = es; then
                 echo '{ sleep 4; zenity --warning --no-wrap --title="Usuario temporal" --text="Al salir no se van a guardar los datos creados,\nincluidas las configuraciones de las aplicaciones.\n\nPara garantizar que en caso de fallo del sistema\nno pierdas los programas, guarda tus programas\nen el directorio '"$PERSISTENT_DIRNAME"'."; } & # '"$CUSTOM_LINE_COMMENT"
         else
                 echo '{ sleep 4; zenity --warning --no-wrap --title="Temporary user" --text="All your data will be lost when leaving the session,\nincluding the configuration of the applications.\n\nTo ensure your code is not lost in case of system failure,\nsave all your code in the '"$PERSISTENT_DIRNAME"' directory."; } # '"$CUSTOM_LINE_COMMENT"
-        fi >> /etc/guest-session/auto.sh
-        chmod a+x /etc/guest-session/auto.sh
+        fi >> /usr/local/bin/contestant-welcome
+        chmod a+rx /usr/local/bin/contestant-welcome
+        mkdir -p /etc/oisetup/skel/.config/autostart 2>/dev/null
+        cat << EOF > /etc/oisetup/skel/.config/autostart/guest-welcome.desktop
+[Desktop Entry]
+Type=Application
+Name=Welcome
+Comment=Welcome message
+Exec=/usr/local/bin/contestant-welcome
+OnlyShowIn=XFCE;
+X-GNOME-Autostart-enabled=true
+EOF
 
 }
 
@@ -377,7 +432,7 @@ function disable_persistent_storage {
 
         echo "Disabling persistent storage for guest user"
 
-        rm -f /etc/guest-session/skel/.skip-guest-warning-dialog
+        rm -f /etc/oisetup/skel/.skip-guest-warning-dialog
 
         clear_persistent_storage
 
@@ -385,7 +440,7 @@ function disable_persistent_storage {
 
 function clear_persistent_storage {
 
-        remove_custom_lines /etc/guest-session/auto.sh true
+        remove_custom_lines /usr/local/bin/contestant-welcome
 
         if ! is_enabled "$param_refresh"; then
                 umount "$PERSISTENT_STORAGE_PATH" 2>/dev/null
@@ -394,7 +449,7 @@ function clear_persistent_storage {
 
         if test -f "$CONFIG_PATH"/persistent_storage_dirname.installed; then
                 olddirname="$(cat "$CONFIG_PATH"/persistent_storage_dirname.installed)"
-                rm -f /etc/guest-session/skel/"$olddirname" /etc/guest-session/skel/Desktop/"$olddirname" "$CONFIG_PATH"/persistent_storage_dirname.installed
+                rm -f /etc/oisetup/skel/"$olddirname" /etc/oisetup/skel/Desktop/"$olddirname" "$CONFIG_PATH"/persistent_storage_dirname.installed
         fi
 
         remove_custom_lines /etc/fstab true
@@ -444,7 +499,10 @@ function enable_dns_lockdown {
         mkdir -p /etc/dns-lockdown 2>/dev/null
         (test -n "$domains" && echo "$domains" | tr ' ' '\n' || echo "") > /etc/dns-lockdown/domains.allowlist
         (test -n "$ips" && echo "$ips" | tr ' ' '\n' || echo "") > /etc/dns-lockdown/ips.allowlist
-        echo -e "ENABLED=1\nINTERFACE=$interface" > /etc/dns-lockdown/config
+        cat << EOF > /etc/dns-lockdown/config
+ENABLED=1
+INTERFACE=$interface
+EOF
         systemctl enable dns-lockdown >/dev/null
         systemctl enable dns-lockdown-monitor >/dev/null
         systemctl restart dns-lockdown >/dev/null
@@ -564,8 +622,16 @@ function firefox_settings {
     "NoDefaultBookmarks": true,
     "Preferences": {
       "datareporting.policy.dataSubmissionPolicyBypassNotification": true,
-      "extensions.getAddons.showPane": false
-    }
+      "extensions.getAddons.showPane": false,
+      "privacy.sanitize.sanitizeOnShutdown": false,
+      "privacy.sanitize.whenClosing": false
+    },
+    "DisablePrivateBrowsing": true,
+    "BlockAboutConfig": true,
+    "DisableForgetButton": true,
+    "PasswordManagerEnabled": false,
+    "OfferToSaveLogins": false,
+    "OfferToSaveLoginsDefault": false
   }
 }' >  /etc/firefox/policies/policies.json
 
@@ -669,7 +735,7 @@ function install_apt_packages {
 
         echo "Installing apt packages: $packages"
 
-        apt-get install -y $packages
+        apt install -y $packages
         echo "$packages" > "$CONFIG_PATH"/apt.installed
 
 }
@@ -681,7 +747,7 @@ function remove_apt_packages {
         test -z "$packages" && return
 
         echo "Uninstalling apt packages: $packages"
-        apt-get remove -y $packages && test "$@" = ALL && rm -f "$CONFIG_PATH/apt.installed" 2>/dev/null
+        apt remove -y $packages && test "$@" = ALL && rm -f "$CONFIG_PATH/apt.installed" 2>/dev/null
 
 }
 
@@ -735,7 +801,7 @@ function host_cleanup {
         find /home/oi/.local/share/Trash -type f -delete 2>/dev/null
         snap list --all 2>/dev/null | awk '/disabled/{print $1, $3}' | while read snapname revision; do sudo snap remove "$snapname" --revision="$revision"; done
         rm -f /home/oi/.bash_history* /root/.bash_history /home/oi/.lesshst /home/oi/.python_history /homme/oi/.viminfo /home/oi/.xsession-errors* /home/oi/.wget-hsts 2>/dev/null
-        rm -rf /home/oi/.vscode /home/oi/.config/Code/ /home/.cache/mozilla 2>/dev/null
+        rm -rf /home/oi/.vscode /home/oi/.config/Code/ /home/oi/.cache/mozilla 2>/dev/null
         find /var/tmp -type f -delete 2>/dev/null
         find /tmp -type f -delete 2>/dev/null
 
@@ -840,7 +906,7 @@ fi
 . "$profile_path"
 
 # Load default values
-for varname in OISETUP_PROFILE LOCALE PERSISTENT_DIRNAME PROCTOR_USERNAME PROCTOR_DIFF_IGNORE DNS_LOCKDOWN DNS_LOCKDOWN_INTERFACE; do
+for varname in OISETUP_PROFILE LOCALE PERSISTENT_DIRNAME PROCTOR_USERNAME PROCTOR_DIFF_IGNORE CONTESTANT_USERNAME DNS_LOCKDOWN DNS_LOCKDOWN_INTERFACE; do
         test -z "${!varname}" && default_varname="DEFAULT_$varname" && printf -v "$varname" "%s" "${!default_varname}"
 done
 

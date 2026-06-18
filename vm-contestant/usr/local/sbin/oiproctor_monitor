@@ -17,6 +17,10 @@ function screen_size {
 	sudo xrandr -d :0 2>/dev/null | grep '*' | uniq | awk '{print $1}'
 }
 
+function get_mounted_media {
+	df -h --output="target,source,fstype,size,pcent" -a -x tmpfs -x sysfs -x devpts -x cgroup2 -x securityfs -x pstore -x bpf -x proc -x mqueue -x tracefs -x hugetlbfs -x debugfs -x fusectl -x binfmt_misc -x configfs -x devtmpfs | grep -vE '^(/|/proc/sys/fs/binfmt_misc) ' | tail -n +2
+}
+
 function disk_space {
 	df -t ext4 --output=pcent,avail,target -h | sed -e 1d -e 's/^\s\+//' -e 's/\s\+/ /g'
 }
@@ -60,6 +64,7 @@ last_message=
 last_pid=
 last_timestamp=
 old_disk_space=
+old_mounted_media="$(get_mounted_media)"
 old_screen_size="$(screen_size)"
 
 while true; do
@@ -67,6 +72,7 @@ while true; do
 	new_user="$(get_user)"
 	new_contest_user="$(get_contest_user)"
 	new_screen_size="$(screen_size)"
+	new_mounted_media="$(get_mounted_media)"
 	new_timestamp="$(date +%s)"
 	if test "$new_message" != "$last_message" || test -n "$last_pid" -a ! -d /proc/"${last_pid:-0}" || test -n "$new_user" -a "$new_user" != "$last_user" || test $(($new_timestamp - $OSD_FORCE_REFRESH)) -gt ${last_timestamp:-0}; then
 		test -n "$last_pid" && killall -9 osd_cat 2>/dev/null
@@ -74,6 +80,10 @@ while true; do
 		last_user="$new_user"
 		last_message="$new_message"
 		last_timestamp="$new_timestamp"
+	fi
+	if test "$old_mounted_media" != "$new_mounted_media"; then
+		wget -T "${NOTIFY_TIMEOUT:-5}" -O /dev/null "http://$TARGET/notify?msg=$new_mounted_media $(uptime | cut -d, -f1)"
+		old_screen_size="$new_screen_size"
 	fi
 	if test "$new_screen_size" != "$old_screen_size"; then
 		wget -T "${NOTIFY_TIMEOUT:-5}" -O /dev/null "http://$TARGET/notify?msg=$old_screen_size > $new_screen_size $(uptime | cut -d, -f1)"

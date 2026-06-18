@@ -27,6 +27,7 @@ Before following any procedure, understand what can and cannot be cheated, and h
 - Two different CMS usernames appearing from the same tunnel IP (two people sharing one VM).
 - Screen resolution change (external display connected, or VM resized).
 - VM disk usage exceeding 95%.
+- VM has extra devices mounted.
 
 ## 1. Preparation (Weeks Before the Contest)
 

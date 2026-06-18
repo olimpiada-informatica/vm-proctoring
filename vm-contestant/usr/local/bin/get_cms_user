@@ -8,14 +8,14 @@ function warn_not_sudo {
 cms_contest_id="$(cat /etc/oisetup/cms_contest_id.installed 2>/dev/null)"
 test -n "$cms_contest_id" || exit 1
 
-firefox_profile_dir="$(ls -dt /home/contestant/.mozilla/firefox/*.default-release 2>/dev/null | head -1)"
+firefox_profile_dir="$(ls -dt /home/contestant/.config/mozilla/firefox/*.default-release 2>/dev/null | head -1)"
 test -n "$firefox_profile_dir" || warn_not_sudo
 
 cms_user=
 
 # Attempt non-session cookie
 firefox_cookies_file="$(ls -dt "$firefox_profile_dir"/cookies.sqlite 2>/dev/null | head -1)"
-if test -z "$cms_user" -a -n "$firefox_cookies_file"; then
+if test -n "$firefox_cookies_file"; then
 	tempfile="$(mktemp -u)"
 	cms_user="$(cp -f "$firefox_cookies_file" "$tempfile" 2>/dev/null && cp -f "$firefox_cookies_file"-wal "$tempfile"-wal 2>/dev/null && sqlite3 "$tempfile" "SELECT * FROM moz_cookies;" | sed "s/^.*:${cms_contest_id}_login|//" | cut -d'|' -f1 | cut -d: -f2 | base64 -d 2>/dev/null | cut -d'"' -f2 && rm -f "$tempfile" "$tempfile"-wal 2>/dev/null)"
 fi
@@ -23,7 +23,7 @@ fi
 # Attempt session cookie
 firefox_cookies_file="$(ls -dt "$firefox_profile_dir"/sessionstore-backups/recovery.jsonlz4 2>/dev/null | head -1)"
 if test -z "$cms_user" -a -n "$firefox_cookies_file"; then
-	cms_user="$(lz4jsoncat "$firefox_cookies_file" | jq '.cookies[] | select(.name == "'"${cms_contest_id}_login"'").value' -r | cut -d'|' -f5 | cut -d: -f2 | base64 --decode | cut -d'"' -f2)"
+	cms_user="$(lz4jsoncat "$firefox_cookies_file" | jq '.cookies[] | select(.name == "'"${cms_contest_id}_login"'").value' -r | cut -d'|' -f5 | cut -d: -f2 | base64 --decode | jq -r '.[0]')"
 fi
 
 test -n "$cms_user" && echo $cms_user || warn_not_sudo
