@@ -133,9 +133,11 @@ const requestListener = function (req, res) {
 		if (!nocache && cache.status?.timestamp > now - config.ping_interval / 2 * 1000) return res.write(cache.status.output);
 
 		let output = "";
-		output	+= `<!DOCTYPE html><html><head><title>${config.title}</title><meta http-equiv="refresh" content="${config.ping_interval}"></head><body>`;
+		output += `<!DOCTYPE html><html><head><title>${config.title}</title><meta http-equiv="refresh" content="${config.ping_interval}"></head><body>`;
 
-		output	+= '<style>.user { display: inline-block; float: left; padding: 1em; text-align: center; min-width: 5em; border: 1px dotted grey; font-family: monospace; } .first { clear: left; } .online { background-color: green; color: white; } .offline { background-color: red; } .idle { background-color: yellow; }</style>';
+		output += '<style>.user { display: inline-block; float: left; padding: 1em; text-align: center; min-width: 5em; border: 1px dotted grey; font-family: monospace; } .first { clear: left; } .online { background-color: green; color: white; } .offline { background-color: red; } .idle { background-color: yellow; } .users:not(.detailed) .user_details:not(.username) { display: none; }</style>';
+
+		output += '<div class="users">';
 
 		let old_team;
 		[ ...new Set(config.cms_users) ].sort().forEach(username => {
@@ -148,7 +150,8 @@ const requestListener = function (req, res) {
 			if (!user_ip) user_ip = "";
 
 			let classname  	= 'user';
-			if (user_obj?.timestamp >= now - config.ping_interval * 2 * 1000) {
+			const timestamp = user_obj?.timestamp;
+			if (timestamp >= now - config.ping_interval * 2 * 1000) {
 				classname += ' online';
 			} else if (user_obj) {
 				classname += ' idle';
@@ -160,13 +163,17 @@ const requestListener = function (req, res) {
 				classname += ' first';
 			}
 
-			output        	+=`<div class="${classname}" title="${user_ip}">${username}</div>`;
+			output +=`<div class="${classname}"><div class="user_details username">${username || ''}</div><div class="user_details user_ip">${user_ip || ''}</div><div class="user_details timestamp">${timestamp || ''}</div><div class="user_details datetime">${timestamp ? date_formatted(timestamp) : ''}</div></div>`;
 
 			old_team       	= team;
 
 		});
 
-		output	+= '</body></html>';
+		output += '</div>';
+
+		output += '<script>var showTitles = 0; const checkAndTriggerTitles = () => { if (showTitles % 2 == 0 && showTitles > 3) document.querySelector(".users").classList.add("detailed"); }; document.querySelector(".users > div:first-of-type").addEventListener("click", () => { if (showTitles % 2 == 0) showTitles++; checkAndTriggerTitles(); }); document.querySelector(".users > div:last-of-type").addEventListener("click", () => { if (showTitles % 2 == 1) showTitles++; checkAndTriggerTitles(); });</script>';
+
+		output += '</body></html>';
 		res.write(output);
 
 		cache.status = { output: output, timestamp: now };

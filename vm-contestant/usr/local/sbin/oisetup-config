@@ -2,8 +2,8 @@
 
 # Setup
 CONFIG_PATH="/etc/oisetup"
-PROFILES_PATH="$CONFIG_PATH/profiles"
-NATIVE_PROFILE="default"
+OISETUP_PROFILES_PATH="$CONFIG_PATH/profiles"
+DEFAULT_OISETUP_PROFILE="default"
 
 apply=
 reads=()
@@ -50,9 +50,9 @@ while test $# -gt 0; do
     shift
 done
 
-test -z "$profile" && profile="$(basename "$(readlink "$PROFILES_PATH/$NATIVE_PROFILE")")"
+test -z "$profile" && profile="$(basename "$(readlink "$OISETUP_PROFILES_PATH/$DEFAULT_OISETUP_PROFILE")")"
 
-profile_path="$PROFILES_PATH/${profile:-default}"
+profile_path="$OISETUP_PROFILES_PATH/${profile:-default}"
 ! test -f "$profile_path" && echo "Profile $profile does not exist" >&2 && exit 1
 
 for ((i = 0; i < ${#reads[@]}; i += 1)); do

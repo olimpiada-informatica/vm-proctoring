@@ -155,10 +155,14 @@ def inner_application(env, start_response):
 
             def process_packet(data):
                 dest_mac = get_mac(data)
-                if dest_mac == MYMAC or dest_mac == BROADCAST:
+                if dest_mac == MYMAC:
                     tap.write(data)
-                if dest_mac != MYMAC:
-                    put_in_queue(dest_mac, data)
+                #Disable broadcast communication
+                #if dest_mac == BROADCAST:
+                #    tap.write(data)
+                #Disable client2client communication
+                #if dest_mac != MYMAC:
+                #    put_in_queue(dest_mac, data)
 
             parse_packets(env['wsgi.input'], process_packet)
             start_response('200 OK', ips[client_mac], [])
